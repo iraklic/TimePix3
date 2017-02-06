@@ -15,16 +15,15 @@
 
 using namespace std;
 
-unsigned int grayToBinary(unsigned int num)
-{
-    unsigned int mask;
-    for (mask = num >> 1; mask != 0; mask = mask >> 1)
-    {
-        num = num ^ mask;
-    }
-    return num;
+unsigned int grayToBinary(unsigned int num) {
+	unsigned int mask;
+	for (mask = num >> 1; mask != 0; mask = mask >> 1) {
+		num = num ^ mask;
+	}
+	return num;
 }
-//when running for gem detectors max_dist should be ~10
+
+// when running for gem detectors max_dist should be ~10
 int make_tree(string filename, int max_dist = 3, int nentries = 1000000000) {
 	ULong64_t pixdata;
 	ULong64_t longtime = 0;
@@ -158,168 +157,165 @@ int make_tree(string filename, int max_dist = 3, int nentries = 1000000000) {
 //	else strcpy(rootfilename,filename);
 //	ptr = strstr(rootfilename, ".dat");
 //	sprintf( ptr, ".root");
-    string filename1 = filename.c_str();
-    size_t slash = filename1.find_last_of("/");
-    string fileName =  filename1.substr(slash+1);
-    string Filename =  filename1.substr(slash+1);
-    size_t dotPos = Filename.find_last_of(".");
-    string newrootfile  = Filename.replace(dotPos, 200, ".root");	
-    string rootfilename = "data/"+newrootfile;
+	string filename1 = filename.c_str();
+	size_t slash = filename1.find_last_of("/");
+	string fileName =  filename1.substr(slash+1);
+	string Filename =  filename1.substr(slash+1);
+	size_t dotPos = Filename.find_last_of(".");
+	string newrootfile  = Filename.replace(dotPos, 200, ".root");	
+	string rootfilename = "data/"+newrootfile;
 
-    TFile *f = new TFile(rootfilename.c_str(), "RECREATE");
-    if (f == NULL) { cout << "could not open root file " << endl; return -1; }
-    f->cd();
+	TFile *f = new TFile(rootfilename.c_str(), "RECREATE");
+	if (f == NULL) { cout << "could not open root file " << endl; return -1; }
+	f->cd();
 
-    TTree *rawtree = new TTree("rawtree", "tpx3 telescope, July 2014");
-    rawtree->Branch("Run", &run, "Run/I");  
-    rawtree->Branch("Track", &track, "Track/I");  
-    rawtree->Branch("Nhits", &nhits, "Nhits/I");
-    rawtree->Branch("clToT", &clToT, "clToT/I");
-    rawtree->Branch("clX", &clX, "clX/F");
-    rawtree->Branch("clY", &clY, "clY/F");
-    rawtree->Branch("Col", Cols, "Col[Nhits]/I");  
-    rawtree->Branch("Row", Rows, "Row[Nhits]/I");  
-    rawtree->Branch("ToA", ToAs, "ToA[Nhits]/I");
-    rawtree->Branch("FToA", FToAs, "FToA[Nhits]/I");
-    rawtree->Branch("ToT", ToTs, "ToT[Nhits]/I");
-    rawtree->Branch("SpidrTime", SpidrTimes, "SpidrTime[Nhits]/I");
-    rawtree->Branch("GlobalTime", GlobalTimes, "GlobalTime[Nhits]/l");
+	TTree *rawtree = new TTree("rawtree", "tpx3 telescope, July 2014");
+	rawtree->Branch("Run", &run, "Run/I");  
+	rawtree->Branch("Track", &track, "Track/I");  
+	rawtree->Branch("Nhits", &nhits, "Nhits/I");
+	rawtree->Branch("clToT", &clToT, "clToT/I");
+	rawtree->Branch("clX", &clX, "clX/F");
+	rawtree->Branch("clY", &clY, "clY/F");
+	rawtree->Branch("Col", Cols, "Col[Nhits]/I");  
+	rawtree->Branch("Row", Rows, "Row[Nhits]/I");  
+	rawtree->Branch("ToA", ToAs, "ToA[Nhits]/I");
+	rawtree->Branch("FToA", FToAs, "FToA[Nhits]/I");
+	rawtree->Branch("ToT", ToTs, "ToT[Nhits]/I");
+	rawtree->Branch("SpidrTime", SpidrTimes, "SpidrTime[Nhits]/I");
+	rawtree->Branch("GlobalTime", GlobalTimes, "GlobalTime[Nhits]/l");
 
-    TTree *timetree = new TTree("timetree", "tpx3 telescope, July 2014");
-    timetree->Branch("TrigCntr", &trigcntr, "TrigCntr/i");  
-    timetree->Branch("TrigTimeCoarse", &trigtime_coarse, "TrigTimeCoarse/i");  
-    timetree->Branch("TrigTimeFine", &trigtime_fine, "TrigTimeFine/i");  
-    timetree->Branch("TrigTimeGlobal", &trigtime_global, "TrigTimeGlobal/l");  
+	TTree *timetree = new TTree("timetree", "tpx3 telescope, July 2014");
+	timetree->Branch("TrigCntr", &trigcntr, "TrigCntr/i");  
+	timetree->Branch("TrigTimeCoarse", &trigtime_coarse, "TrigTimeCoarse/i");  
+	timetree->Branch("TrigTimeFine", &trigtime_fine, "TrigTimeFine/i");  
+	timetree->Branch("TrigTimeGlobal", &trigtime_global, "TrigTimeGlobal/l");  
 
-    TTree *longtimetree = new TTree("longtimetree", "tpx3 telescope, May 2015");
-    longtimetree->Branch("LongTime", &longtime, "LongTime/l");  
+	TTree *longtimetree = new TTree("longtimetree", "tpx3 telescope, May 2015");
+	longtimetree->Branch("LongTime", &longtime, "LongTime/l");  
 
-    TNamed *deviceID = new TNamed("deviceID", "device ID not set");
+	TNamed *deviceID = new TNamed("deviceID", "device ID not set");
 
+	TH1F *hjump = new TH1F("hjump","time jumps", 200000, -100000, 100000);
 
-    TH1F *hjump = new TH1F("hjump","time jumps", 200000, -100000, 100000);
+	tnhits = 0;
+	cnt = 0;
+	FILE *fp = fopen(filename.c_str(), "r");
+	cout << filename.c_str() << endl;
+	if (fp == NULL) { cout << "can not open file: " << filename.c_str() << endl; return -1;}
 
-    tnhits = 0;
-    cnt = 0;
-    FILE *fp = fopen(filename.c_str(), "r");
-    cout << filename.c_str() << endl;
-    if (fp == NULL) { cout << "can not open file: " << filename.c_str() << endl; return -1;}
+	UInt_t sphdr_id;
+	UInt_t sphdr_size;
+	retval = fread( &sphdr_id, sizeof(UInt_t), 1, fp);
+	retval = fread( &sphdr_size, sizeof(UInt_t), 1, fp);
+	cout << hex << sphdr_id << dec << endl;
+	cout << "header size " << sphdr_size << endl;
+	if (sphdr_size > 66304) sphdr_size = 66304;
+	UInt_t *fullheader = new UInt_t[sphdr_size/sizeof(UInt_t)];
+	if (fullheader == 0) { cout << "failed to allocate memory for header " << endl; return -1; }
 
-    UInt_t sphdr_id;
-    UInt_t sphdr_size;
-    retval = fread( &sphdr_id, sizeof(UInt_t), 1, fp);
-    retval = fread( &sphdr_size, sizeof(UInt_t), 1, fp);
-    cout << hex << sphdr_id << dec << endl;
-    cout << "header size " << sphdr_size << endl;
-    if (sphdr_size > 66304) sphdr_size = 66304;
-    UInt_t *fullheader = new UInt_t[sphdr_size/sizeof(UInt_t)];
-    if (fullheader == 0) { cout << "failed to allocate memory for header " << endl; return -1; }
+	retval = fread ( fullheader+2, sizeof(UInt_t), sphdr_size/sizeof(UInt_t) -2, fp);
+	fullheader[0] = sphdr_id;
+	fullheader[1] = sphdr_size;
 
-    retval = fread ( fullheader+2, sizeof(UInt_t), sphdr_size/sizeof(UInt_t) -2, fp);
-    fullheader[0] = sphdr_id;
-    fullheader[1] = sphdr_size;
+//	todo read in header via structure
+//	for now just use fixed offset to find deviceID
+	int waferno = (fullheader[132] >> 8) & 0xFFF;
+	int id_y = (fullheader[132] >> 4) & 0xF;
+	int id_x = (fullheader[132] >> 0) & 0xF;
+	char devid[16];
+	sprintf(devid,"W%04d_%c%02d", waferno, (char)id_x+64, id_y);  // make readable device identifier
+	deviceID->SetTitle(devid);
+	deviceID->Write();   // write deviceID to root file
 
-    // todo read in header via structure
-    // for now just use fixed offset to find deviceID
-    int waferno = (fullheader[132] >> 8) & 0xFFF;
-    int id_y = (fullheader[132] >> 4) & 0xF;
-    int id_x = (fullheader[132] >> 0) & 0xF;
-    char devid[16];
-    sprintf(devid,"W%04d_%c%02d", waferno, (char)id_x+64, id_y);  // make readable device identifier
-    deviceID->SetTitle(devid);
-    deviceID->Write();   // write deviceID to root file
+	multimap<ULong64_t, ULong64_t> hitlist;
+	multimap<ULong64_t, ULong64_t>::iterator it;
 
-    multimap<ULong64_t, ULong64_t> hitlist;
-    multimap<ULong64_t, ULong64_t>::iterator it;
+	int sortsize = 100000;
+	int pcnt = 0;
+	int sortthreshold = 2*sortsize;
 
-    int sortsize = 100000;
-    int pcnt = 0;
-    int sortthreshold = 2*sortsize;
+	int backjumpcnt = 0;
 
-    int backjumpcnt = 0;
+	while (!feof(fp) && pcnt < nentries) {
+//	while (!feof(fp) && track<100000) {
+//	while (!feof(fp) ) {
+		retval = fread( &pixdata, sizeof(ULong64_t), 1, fp);
+		if (retval == 1) {
+			header = ((pixdata & 0xF000000000000000) >> 60) & 0xF;
+//			printf("header %X\n", header);
+			if (header == 0xA || header == 0xB) {
+				pcnt++;
+				data = ((pixdata & 0x00000FFFFFFF0000) >> 16);
+				ToA = ( (data & 0x0FFFC000) >> 14 );
+//				UInt_t tmpToA = ( (data & 0x0FFFC000) >> 14 );
+//				ToA  = grayToBinary(tmpToA);
+				spidr_time = (pixdata & 0x000000000000FFFF);
+				ToA_coarse = (spidr_time << 14) | ToA;
 
-    while (!feof(fp) && pcnt < nentries){
-    //while (!feof(fp) && track<100000) {
-    //while (!feof(fp) ) {
-        retval = fread( &pixdata, sizeof(ULong64_t), 1, fp);
-        if (retval == 1) {
-            header = ((pixdata & 0xF000000000000000) >> 60) & 0xF;
-            //printf("header %X\n", header);
-            if (header == 0xA || header == 0xB) {
-                pcnt++;
-                data = ((pixdata & 0x00000FFFFFFF0000) >> 16);
-                ToA = ( (data & 0x0FFFC000) >> 14 );
-                //UInt_t tmpToA = ( (data & 0x0FFFC000) >> 14 );
-                //ToA  = grayToBinary(tmpToA);
-                spidr_time = (pixdata & 0x000000000000FFFF);
-                ToA_coarse = (spidr_time << 14) | ToA;
-                
-                // calculate the global time
-                pixelbits = ( ToA_coarse >> 28 ) & 0x3;   // units 25 ns
-                longtimebits = ( longtime >> 28 ) & 0x3;  // units 25 ns;
-                diff = longtimebits - pixelbits;
-                globaltime = (longtime & 0xFFFFC0000000) | (ToA_coarse & 0x3FFFFFFF);
-                if( diff == 1  || diff == -3)  globaltime = ( (longtime - 0x10000000) & 0xFFFFC0000000) | (ToA_coarse & 0x3FFFFFFF);
-                if( diff == -1 || diff == 3 )  globaltime = ( (longtime + 0x10000000) & 0xFFFFC0000000) | (ToA_coarse & 0x3FFFFFFF);
-                if ( ( ( globaltime >> 28 ) & 0x3 ) != ( pixelbits ) ) {
-                    cout << "Error, checking bits should match .. " << endl; 
-                    cout << hex << globaltime << " " << ToA_coarse << " " << dec << ( ( globaltime >> 28 ) & 0x3 ) << " " << pixelbits << " " << diff << endl;
-                }
-                
-                /*
-                if ( (globaltime) < (prevglobaltime - 10000) && (prevglobaltime > 0) ) {
-                    backjumpcnt++;
-                    hjump->Fill(prevglobaltime - globaltime);
-                    cout << (globaltime - prevglobaltime) << endl; 
-                    cout << "                   prevglobaltime  globaltime   ToA_coarse   longtime  diffbits" << endl;
-                    cout << "backward time jump " << prevglobaltime << "  " << globaltime << "  " << ToA_coarse << "  " << longtime << " " << diff << endl;
-                    cout << hex << "backward time jump " << prevglobaltime << "  " << globaltime << "  " << ToA_coarse << "  " << longtime << dec << endl << endl;
-                }
-                */
-                
-                prevglobaltime = globaltime;
-                //cout << "in  " << globaltime << "  "  << pixdata << endl;
-                hitlist.insert ( pair<ULong64_t, ULong64_t>(globaltime, pixdata) );
-                //hitlist.insert ( pair<int, ULong64_t>(ToA_coarse, pixdata) );
-            }
+//				calculate the global time
+				pixelbits = ( ToA_coarse >> 28 ) & 0x3;   // units 25 ns
+				longtimebits = ( longtime >> 28 ) & 0x3;  // units 25 ns;
+				diff = longtimebits - pixelbits;
+				globaltime = (longtime & 0xFFFFC0000000) | (ToA_coarse & 0x3FFFFFFF);
+				if( diff == 1  || diff == -3)  globaltime = ( (longtime - 0x10000000) & 0xFFFFC0000000) | (ToA_coarse & 0x3FFFFFFF);
+				if( diff == -1 || diff == 3 )  globaltime = ( (longtime + 0x10000000) & 0xFFFFC0000000) | (ToA_coarse & 0x3FFFFFFF);
+				if ( ( ( globaltime >> 28 ) & 0x3 ) != ( pixelbits ) ) {
+					cout << "Error, checking bits should match .. " << endl; 
+					cout << hex << globaltime << " " << ToA_coarse << " " << dec << ( ( globaltime >> 28 ) & 0x3 ) << " " << pixelbits << " " << diff << endl;
+				}
+/*
+			if ( (globaltime) < (prevglobaltime - 10000) && (prevglobaltime > 0) ) {
+				backjumpcnt++;
+				hjump->Fill(prevglobaltime - globaltime);
+				cout << (globaltime - prevglobaltime) << endl; 
+				cout << "                   prevglobaltime  globaltime   ToA_coarse   longtime  diffbits" << endl;
+				cout << "backward time jump " << prevglobaltime << "  " << globaltime << "  " << ToA_coarse << "  " << longtime << " " << diff << endl;
+				cout << hex << "backward time jump " << prevglobaltime << "  " << globaltime << "  " << ToA_coarse << "  " << longtime << dec << endl << endl;
+			}
+*/
 
-            if ( header == 0x4  || header == 0x6 ) {   // packets with time information, old and new format: 0x4F and 0x6F
-                //pcnt++;
-                subheader = ((pixdata & 0x0F00000000000000) >> 56) & 0xF;
-                if ( subheader == 0xF ) {
-                    trigcntr = ((pixdata & 0x00FFF00000000000) >> 44) & 0xFFF;
-                    trigtime_coarse = ((pixdata & 0x00000FFFFFFFF000) >> 12) & 0xFFFFFFFF;
-                    trigtime_fine = ((pixdata & 0x0000000000000FFF) >> 0 ) & 0xFFFFFFFF;
-                    if ( trigtime_coarse < prev_trigtime_coarse ) {   // 32 time counter wrapped
-                        trigtime_global_ext += 0x100000000; 
-                        cout << "coarse trigger time counter wrapped" << endl;
-                    }
-                    //trigtime_global = trigtime_global_ext + (trigtime_coarse & 0xFFFFFFFF);
-                    trigtime_global = trigtime_global_ext + trigtime_coarse;
-                    timetree->Fill();
-                    prev_trigtime_coarse = trigtime_coarse;
-                    //cout << "trigger number " << trigcntr << " at  " << trigtime_coarse  << " " << trigtime_fine << endl;
-                }
-                if ( subheader == 0x4 ) {  // 32 lsb of timestamp
-                    longtime_lsb = (pixdata & 0x0000FFFFFFFF0000) >> 16;
-                }
-                if ( subheader == 0x5 ) {  // 32 msb of timestamp
-                    longtime_msb = (pixdata & 0x00000000FFFF0000) << 16;
-                    ULong64_t tmplongtime = longtime_msb | longtime_lsb;
-                    // now check for large forward jumps in time;
-                    if ( (tmplongtime > ( longtime + 0x10000000)) && (longtime > 0) ) { // 0x10000000 corresponds to about 6 seconds
-                        cout << "large forward time jump" << endl;
-                        longtime = (longtime_msb - 0x10000000) | longtime_lsb; 
-                    }
-                    else longtime = tmplongtime;               
-                    longtimetree->Fill();
-                }
-                    
-            } 
-            //pcnt++;
-        }
-        //if ( ((pcnt%sortsize == 0) && pcnt>sortthreshold) || (retval <= 0) ) {  // list contain 2*sortsize elements
-        //if ( (pcnt == sortthreshold) || (retval <= 0) ) {  // list contain 2*sortsize elements
+			prevglobaltime = globaltime;
+//			cout << "in  " << globaltime << "  "  << pixdata << endl;
+			hitlist.insert ( pair<ULong64_t, ULong64_t>(globaltime, pixdata) );
+//			hitlist.insert ( pair<int, ULong64_t>(ToA_coarse, pixdata) );
+		}
+		if ( header == 0x4  || header == 0x6 ) {   // packets with time information, old and new format: 0x4F and 0x6F
+//			pcnt++;
+			subheader = ((pixdata & 0x0F00000000000000) >> 56) & 0xF;
+			if ( subheader == 0xF ) {
+				trigcntr = ((pixdata & 0x00FFF00000000000) >> 44) & 0xFFF;
+				trigtime_coarse = ((pixdata & 0x00000FFFFFFFF000) >> 12) & 0xFFFFFFFF;
+				trigtime_fine = ((pixdata & 0x0000000000000FFF) >> 0 ) & 0xFFFFFFFF;
+				if ( trigtime_coarse < prev_trigtime_coarse ) {   // 32 time counter wrapped
+					trigtime_global_ext += 0x100000000; 
+					cout << "coarse trigger time counter wrapped" << endl;
+				}
+//				trigtime_global = trigtime_global_ext + (trigtime_coarse & 0xFFFFFFFF);
+				trigtime_global = trigtime_global_ext + trigtime_coarse;
+				timetree->Fill();
+				prev_trigtime_coarse = trigtime_coarse;
+//				cout << "trigger number " << trigcntr << " at  " << trigtime_coarse  << " " << trigtime_fine << endl;
+			}
+			if ( subheader == 0x4 ) {  // 32 lsb of timestamp
+				longtime_lsb = (pixdata & 0x0000FFFFFFFF0000) >> 16;
+			}
+			if ( subheader == 0x5 ) {  // 32 msb of timestamp
+				longtime_msb = (pixdata & 0x00000000FFFF0000) << 16;
+				ULong64_t tmplongtime = longtime_msb | longtime_lsb;
+//				now check for large forward jumps in time;
+				if ( (tmplongtime > ( longtime + 0x10000000)) && (longtime > 0) ) { // 0x10000000 corresponds to about 6 seconds
+					cout << "large forward time jump" << endl;
+					longtime = (longtime_msb - 0x10000000) | longtime_lsb; 
+				}
+				else longtime = tmplongtime;               
+				longtimetree->Fill();
+			}
+		} 
+//		pcnt++;
+	}
+
+//	if ( ((pcnt%sortsize == 0) && pcnt>sortthreshold) || (retval <= 0) ) {  // list contain 2*sortsize elements
+//	if ( (pcnt == sortthreshold) || (retval <= 0) ) {  // list contain 2*sortsize elements
         if ( (pcnt >= sortthreshold) || (retval <= 0) ) {  // list contain 2*sortsize elements
             it = hitlist.begin();
             int n;
