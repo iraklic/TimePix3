@@ -28,7 +28,8 @@ void dataReader(char * inFile = "",
 
 	FILE * myFile;
 	myFile = fopen(outFile, "w");
-	if (bCol) fprintf(myFile, "Col");
+	fprintf(myFile, "TrigId");
+	if (bCol) fprintf(myFile, ",Col");
 	if (bRow) fprintf(myFile, ",Row");
 	if (bToA) fprintf(myFile, ",ToA");
 	if (bToT) fprintf(myFile, ",ToT");
