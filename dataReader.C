@@ -3,18 +3,37 @@
 #include "TH1.h"
 #include "TTree.h"
 
-void dataReader(char * inFile = "") {
+void dataReader(char * inFile = "", 
+		bool bCol = true, 
+		bool bRow = true, 
+		bool bToA = true, 
+		bool bToT = true, 
+		bool bGTF = true, 
+		int nHitsCut = 0, 
+		int windowCut = 40, 
+		int linesPerFile = 50000) {
 	if (inFile == "") {
 		cout << "Please provide fule to reduce : root -l 'dataReader(\"<filename.root>\")'" << endl;
 		return;
 	}
-	cout << inFile << endl;
-	char outFile[100];
+	if (windowCut > 500) {
+		cout << " ========================================== " << endl;
+		cout << "=== " << windowCut << " ms is very large winwdow!!!" << endl;
+		cout << " ========================================== " << endl;
+		return;
+	}
+	cout << "Working with : " << inFile << " file" << endl;
+	char outFile[200];
 	sprintf(outFile, "%s.csv", inFile);
 
 	FILE * myFile;
 	myFile = fopen(outFile, "w");
-	fprintf(myFile, "TrigId,Col,Row,ToA,ToT,GlobalTimeFine\n");
+	if (bCol) fprintf(myFile, "Col");
+	if (bRow) fprintf(myFile, ",Row");
+	if (bToA) fprintf(myFile, ",ToA");
+	if (bToT) fprintf(myFile, ",ToT");
+	if (bGTF) fprintf(myFile, ",GlobalTimeFine");
+	fprintf(myFile, "\n");
 
 	TFile * f = new TFile(inFile, "READ");
 	TTree * timetree = (TTree * ) f->Get("timetree");
@@ -53,17 +72,23 @@ void dataReader(char * inFile = "") {
 		}
 		for (int j = currChunk; j < Nraw; j++) {
 			rawtree->GetEntry(j);
-			if (GlobalTimesFine[0] < TrigTime || nhits < 2) {
+			if (GlobalTimesFine[0] < TrigTime || nhits < nHitsCut) {
 				currChunk = j;
 				continue;
 			}
-			if (GlobalTimesFine[0] > (TrigTime + 40/6.1*1000000)) {
+			if (GlobalTimesFine[0] > (TrigTime + windowCut/6.1*1000000)) {
 				currChunk = j;
 				break;
 			}
 			else {
 				for (int k = 0; k < nhits; k++) {
-					fprintf(myFile, "%d,%d,%d,%d,%d,%llu\n", i,  Cols[k], Rows[k], ToAs[k], ToTs[k], GlobalTimesFine[k]);
+					fprintf(myFile, "%d", i);
+					if (bCol) fprintf(myFile, ",%d", Cols[k]);
+					if (bRow) fprintf(myFile, ",%d", Rows[k]);
+					if (bToA) fprintf(myFile, ",%d", ToAs[k]);
+					if (bToT) fprintf(myFile, ",%d", ToTs[k]);
+					if (bGTF) fprintf(myFile, ",%llu", GlobalTimesFine[k]);
+					fprintf(myFile, "\n");
 				}
 				myCounter++;
 			}
