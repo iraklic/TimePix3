@@ -111,7 +111,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 
 //	BROWS FILE
 	rootFile = new TGTextEntry(contents, new TGTextBuffer(50));
-	rootFile->SetText("SelectFile");
+	rootFile->SetText("Select File");
 	bButton = new TGTextButton(contents, "Browse Files");
 	contents->AddFrame(rootFile, new TGLayoutHints(kLHintsLeft | kLHintsExpandX, 5, 5, 5, 5));
 	contents->AddFrame(bButton, new TGLayoutHints(kLHintsRight | kLHintsExpandX, 5, 5, 5, 5));
@@ -153,7 +153,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	cuts->SetTitlePos(TGGroupFrame::kCenter);
 
 	TextMargin * nhits = new TextMargin(cuts, "nhits");
-	TextMargin * timeW = new TextMargin(cuts, "Time Window");
+	TextMargin * timeW = new TextMargin(cuts, "Time Window (micro s)");
 	timeW->SetEntry(40);
 
 	cuts->AddFrame(nhits, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
@@ -170,7 +170,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 
 	TextMargin * nLines = new TextMargin(outControl, "Lines per File");
 	outControl->AddFrame(nLines, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
-	nLines->SetEntry(50000);
+	nLines->SetEntry(100000);
 	nLines->GetEntry()->Connect("TextChanged(char*)", "DRGui", this, "ApplyCutsLines(char*)");
 
 	controls->AddFrame(outControl, new TGLayoutHints(kLHintsExpandX));
