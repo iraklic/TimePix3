@@ -8,21 +8,35 @@
 #include <algorithm>
 #include <deque>
 
-#include "TTree.h"
+#include "TString.h"
 #include "TFile.h"
 #include "TStopwatch.h"
+
+#include "TTree.h"
+#include "TCanvas.h"
+#include "TH1.h"
+#include "TH2.h"
+//#include "TH2I.h"
+//#include "TH2F.h"
 
 #define MAXHITS 65536       // minimal value for sorting
 
 using namespace std;
 
-int process(string filename, int max_dist=3, UInt_t nentries=1000000000)
+void plot()
+{
+    ;
+}
+
+int process(TString filename, int max_dist=3, UInt_t nentries=1000000000)
 {
     TStopwatch time;
     time.Start();
+
     //
     // Define all variables
     //
+
     ULong64_t pixdata;
     ULong64_t longtime = 0;
     ULong64_t longtime_lsb = 0;
@@ -48,7 +62,6 @@ int process(string filename, int max_dist=3, UInt_t nentries=1000000000)
     ULong64_t trigtime_global_ext = 0;
     ULong64_t tmpfine;
     Int_t retval;
-    Int_t tnhits;
     Int_t trigcnt=0;
 
     UInt_t      Row;
@@ -67,44 +80,80 @@ int process(string filename, int max_dist=3, UInt_t nentries=1000000000)
 
     UInt_t backjumpcnt = 0;
 
+    TNamed *deviceID = new TNamed("deviceID", "device ID not set");
+
+    size_t slash = filename.Last('/');
+    filename.Remove(0,slash+1);
+    size_t dotPos = filename.Last('.');
+
+    //
+    // Open data file
+    //
+
+    FILE *fp = fopen(filename, "r");
+    cout << filename << endl;
+    if (fp == NULL) { cout << "can not open file: " << filename << endl; return -1;}
+
+
     //
     // Create root file
     //
-    string filename1 = filename.c_str();
-    size_t slash = filename1.find_last_of("/");
-    string Filename =  filename1.substr(slash+1);
-    size_t dotPos = Filename.find_last_of(".");
-    string rootfilename = Filename.replace(dotPos, 200, ".root");
 
-    TFile *f = new TFile(rootfilename.c_str(), "RECREATE");
+    TString rootFileName = filename.Replace(dotPos, 200, ".root");
+    TString saveFileName = filename.Replace(dotPos, 200, ".pdf");
+
+    TFile *f = new TFile(rootFileName, "RECREATE");
     if (f == NULL) { cout << "could not open root file " << endl; return -1; }
     f->cd();
 
+
+    //
+    // Trees
+    //
+
     TTree *rawtree = new TTree("rawtree", "tpx3 camera, March 2017");
-//    rawtree->Branch("Col", &Col, "Col[Nhits]/I");
     rawtree->Branch("Col", &Col, "Col/I");
     rawtree->Branch("Row", &Row, "Row/I");
     rawtree->Branch("ToT", &ToT, "ToT/I");
     rawtree->Branch("ToA", &ToA, "ToAs/I");
 
     TTree *timetree = new TTree("timetree", "tpx3 camera, March 2017");
-    timetree->Branch("TrigCntr", &trigcntr, "TrigCntr/i");  
-    timetree->Branch("TrigTimeGlobal", &trigtime_global, "TrigTimeGlobal/l");  
+    timetree->Branch("TrigCntr", &trigcntr, "TrigCntr/i");
+    timetree->Branch("TrigTimeGlobal", &trigtime_global, "TrigTimeGlobal/l");
 
     TTree *longtimetree = new TTree("longtimetree", "tpx3 telescope, May 2015");
-    longtimetree->Branch("LongTime", &longtime, "LongTime/l");  
+    longtimetree->Branch("LongTime", &longtime, "LongTime/l");
 
-    TNamed *deviceID = new TNamed("deviceID", "device ID not set");
-
-    tnhits = 0;
 
     //
-    // Open data file
+    // Plots
     //
 
-    FILE *fp = fopen(filename.c_str(), "r");
-    cout << filename.c_str() << endl;
-    if (fp == NULL) { cout << "can not open file: " << filename.c_str() << endl; return -1;}
+    TH2I* pixelMap = new TH2I("pixelMap",
+                               "Col:Row",
+                                256, -0.5, 255.5,
+                                256, -0.5, 255.5);
+
+    TH2F* pixelMapToT= new TH2F("pixelMapToT",
+                                "Col:Row:ToT",
+                                256, -0.5, 255.5,
+                                256, -0.5, 255.5);
+
+    TH1I* histToT= new TH1I("histToT",
+                            "ToT",
+                            100, 0, 0);
+
+    TH1I* histToA= new TH1I("histToA",
+                            "ToA",
+                            100, 0, 0);
+
+    TH1I* histTrigger= new TH1I("histTrigger",
+                                "Trigger",
+                                1000, 0, 0);
+
+    //
+    // Skip main header
+    //
 
     UInt_t sphdr_id;
     UInt_t sphdr_size;
@@ -205,7 +254,10 @@ int process(string filename, int max_dist=3, UInt_t nentries=1000000000)
                         }
                         trigcnt++;
 		        trigtime_global = ((trigtime_global_ext + trigtime_coarse) << 12) | trigtime_fine ;
+
                         timetree->Fill();
+                        histTrigger->Fill(trigtime_global);
+
                         prev_trigtime_coarse = trigtime_coarse;
 //                        cout << "trigger number " << trigcntr << " at  " << trigtime_coarse  << " " << trigtime_fine << endl;
                     }
@@ -260,6 +312,11 @@ int process(string filename, int max_dist=3, UInt_t nentries=1000000000)
                 ToA = ToAs.front();
                 rawtree->Fill();
 
+                pixelMap->Fill(Col,Row);
+                pixelMapToT->Fill(Col,Row,ToT);
+                histToT->Fill(ToT);
+                histToA->Fill(ToA);
+
                 Cols.pop_front();
                 Rows.pop_front();
                 ToTs.pop_front();
@@ -277,6 +334,31 @@ int process(string filename, int max_dist=3, UInt_t nentries=1000000000)
                 fclose(fp);
                 cout << "OK1 found " << pcnt << " pixel packets" << endl;
                 cout << backjumpcnt << " backward time jumps" << endl;
+
+                TCanvas* canvas = new TCanvas("canvas", saveFileName, 1200, 1200);
+                canvas->Divide(2,2);
+
+                canvas->cd(1);
+                canvas->SetLogz();
+                canvas->SetRightMargin(0.2);
+                pixelMap->SetStats(kFALSE);
+                pixelMap->Draw("colz");
+
+                canvas->cd(2);
+                canvas->SetLeftMargin(0.2);
+                histToT->Draw();
+
+                canvas->cd(3);
+                histToA->Draw();
+
+                if (trigcnt != 0)
+                {
+                    canvas->cd(4);
+                    histTrigger->Draw();
+                }
+
+                canvas->Print(saveFileName);
+                canvas->Close();
                 f->cd();
                 f->Write();
                 f->Close();
