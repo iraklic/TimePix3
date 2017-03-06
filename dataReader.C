@@ -57,19 +57,55 @@ void dataReader(char * inFile = "",
 	rawtree->SetBranchAddress("ToA", ToAs);
 	rawtree->SetBranchAddress("FToA", FToAs);
 	rawtree->SetBranchAddress("ToT", ToTs);
-	rawtree->SetBranchAddress("GlobalTimeFine", GlobalTimesFine);
+	rawtree->SetBranchAddress("GlobalTime", GlobalTimesFine);
 
 	int currChunk = 0;
 	int myCounter = 0;
 	int lineCounter = 0;
 	ULong64_t lastTrig = 0;
+
+//	THIS IS DONE WHEN timetree IS EMPTY, WHICH IS WHEN TRIGGER IS NOT AVAILABLE DURING DATA TAKING
+	if (Ntime == 0) {
+		for (int j = 0; j < Nraw; j++) {
+			rawtree->GetEntry(j);
+			if (j % 10000 == 0) cout << j << " of " << Nraw << " done!" << endl;
+			for (int k = 0; k < nhits; k++) {
+				if (lineCounter % linesPerFile == 0) {
+					char outFile[300];
+					sprintf(outFile, "%s_%d.csv", soutFile.c_str(), lineCounter / linesPerFile);
+					cout << "Oppening file : " << outFile << endl;
+					myFile = fopen(outFile, "w");
+					if (bCol) fprintf(myFile, "Col");
+					if (bRow) fprintf(myFile, ",Row");
+					if (bToA) fprintf(myFile, ",ToA");
+					if (bToT) fprintf(myFile, ",ToT");
+					if (bGTF) fprintf(myFile, ",GlobalTimeFine");
+					fprintf(myFile, "\n");
+				}
+
+				if (bCol) fprintf(myFile, "%d", Cols[k]);
+				if (bRow) fprintf(myFile, ",%d", Rows[k]);
+//				if (bToA) fprintf(myFile, ",%d", ToAs[k]);
+				if (bToT) fprintf(myFile, ",%d", ToTs[k]);
+				if (bGTF) fprintf(myFile, ",%llu", GlobalTimesFine[k]);
+				fprintf(myFile, "\n");
+				lineCounter++;
+			}
+			myCounter++;
+		}
+	finish (myCounter, lineCounter, linesPerFile, Nraw);
+	fclose(myFile);
+	return;
+	}
+
 	for (int i = 0; i < Ntime; i++) {
 		if (i % 500 == 0) cout << i  << " out of " << Ntime << " done!" << endl;
 		timetree->GetEntry(i);
-		if (i) {
+/*		if (i) {
 			ULong64_t diff = 6.1*(TrigTime - lastTrig);
 			lastTrig = TrigTime;
 		}
+		*/
 		for (int j = currChunk; j < Nraw; j++) {
 			rawtree->GetEntry(j);
 			if (GlobalTimesFine[0] < TrigTime || nhits < nHitsCut) {
@@ -98,7 +134,7 @@ void dataReader(char * inFile = "",
 					fprintf(myFile, "%d", i);
 					if (bCol) fprintf(myFile, ",%d", Cols[k]);
 					if (bRow) fprintf(myFile, ",%d", Rows[k]);
-					if (bToA) fprintf(myFile, ",%d", ToAs[k]);
+					if (bToA) fprintf(myFile, ",%d", GlobalTimesFine[k] - TrigTime);
 					if (bToT) fprintf(myFile, ",%d", ToTs[k]);
 					if (bGTF) fprintf(myFile, ",%llu", GlobalTimesFine[k]);
 					fprintf(myFile, "\n");
@@ -108,11 +144,16 @@ void dataReader(char * inFile = "",
 			}
 		}
 	}
+	finish (myCounter, lineCounter, linesPerFile, Nraw);
+	fclose(myFile);
+}
+
+void finish (int myCounter, int lineCounter, int linesPerFile, int Nraw) {
 	cout << "==============================================="  << endl;
-	cout << "==============  JOB DONE !!!  ================="  << endl;
+	cout << "============  JOB IS DONE !!!  ================"  << endl;
 	cout << "==============================================="  << endl;
 	cout << "====  " << myCounter << " events from total of " << Nraw << " selected!"  << endl;
 	cout << "====  " << lineCounter / linesPerFile << " FILES WRITTEN OUT!!!"  << endl;
 	cout << "==============================================="  << endl;
-	fclose(myFile);
+
 }
