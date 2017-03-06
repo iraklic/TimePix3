@@ -64,6 +64,7 @@ void dataReader(char * inFile = "",
 	int lineCounter = 0;
 	ULong64_t lastTrig = 0;
 
+//	THIS IS DONE WHEN timetree IS EMPTY, WHICH IS WHEN TRIGGER IS NOT AVAILABLE DURING DATA TAKING
 	if (Ntime == 0) {
 		for (int j = 0; j < Nraw; j++) {
 			rawtree->GetEntry(j);
@@ -84,7 +85,7 @@ void dataReader(char * inFile = "",
 
 				if (bCol) fprintf(myFile, "%d", Cols[k]);
 				if (bRow) fprintf(myFile, ",%d", Rows[k]);
-				if (bToA) fprintf(myFile, ",%d", ToAs[k]);
+//				if (bToA) fprintf(myFile, ",%d", ToAs[k]);
 				if (bToT) fprintf(myFile, ",%d", ToTs[k]);
 				if (bGTF) fprintf(myFile, ",%llu", GlobalTimesFine[k]);
 				fprintf(myFile, "\n");
@@ -92,6 +93,7 @@ void dataReader(char * inFile = "",
 			}
 			myCounter++;
 		}
+	void finish (int myCounter, int lineCounter, int linesPerFile) {
 	fclose(myFile);
 	return;
 	}
@@ -132,7 +134,7 @@ void dataReader(char * inFile = "",
 					fprintf(myFile, "%d", i);
 					if (bCol) fprintf(myFile, ",%d", Cols[k]);
 					if (bRow) fprintf(myFile, ",%d", Rows[k]);
-					if (bToA) fprintf(myFile, ",%d", ToAs[k]);
+					if (bToA) fprintf(myFile, ",%d", GlobalTimesFine[k] - TrigTime);
 					if (bToT) fprintf(myFile, ",%d", ToTs[k]);
 					if (bGTF) fprintf(myFile, ",%llu", GlobalTimesFine[k]);
 					fprintf(myFile, "\n");
@@ -142,11 +144,16 @@ void dataReader(char * inFile = "",
 			}
 		}
 	}
+	void finish (int myCounter, int lineCounter, int linesPerFile) {
+	fclose(myFile);
+}
+
+void finish (int myCounter, int lineCounter, int linesPerFile) {
 	cout << "==============================================="  << endl;
-	cout << "==============  JOB DONE !!!  ================="  << endl;
+	cout << "============  JOB IS DONE !!!  ================"  << endl;
 	cout << "==============================================="  << endl;
 	cout << "====  " << myCounter << " events from total of " << Nraw << " selected!"  << endl;
 	cout << "====  " << lineCounter / linesPerFile << " FILES WRITTEN OUT!!!"  << endl;
 	cout << "==============================================="  << endl;
-	fclose(myFile);
+
 }
