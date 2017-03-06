@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <deque>
 
+#include "TString.h"
 #include "TFile.h"
 #include "TStopwatch.h"
 
@@ -27,7 +28,7 @@ void plot()
     ;
 }
 
-int process(string filename, int max_dist=3, UInt_t nentries=1000000000)
+int process(TString filename, int max_dist=3, UInt_t nentries=1000000000)
 {
     TStopwatch time;
     time.Start();
@@ -79,20 +80,29 @@ int process(string filename, int max_dist=3, UInt_t nentries=1000000000)
 
     UInt_t backjumpcnt = 0;
 
+    TNamed *deviceID = new TNamed("deviceID", "device ID not set");
+
+    size_t slash = filename.Last('/');
+    filename.Remove(0,slash+1);
+    size_t dotPos = filename.Last('.');
+
+    //
+    // Open data file
+    //
+
+    FILE *fp = fopen(filename, "r");
+    cout << filename << endl;
+    if (fp == NULL) { cout << "can not open file: " << filename << endl; return -1;}
+
+
     //
     // Create root file
     //
 
-    TNamed *deviceID = new TNamed("deviceID", "device ID not set");
+    TString rootFileName = filename.Replace(dotPos, 200, ".root");
+    TString saveFileName = filename.Replace(dotPos, 200, ".pdf");
 
-    string filename1 = filename.c_str();
-    size_t slash = filename1.find_last_of("/");
-    string Filename =  filename1.substr(slash+1);
-    size_t dotPos = Filename.find_last_of(".");
-    string rootfilename = Filename.replace(dotPos, 200, ".root");
-    string saveFileName = Filename.replace(dotPos, 200, ".pdf");
-
-    TFile *f = new TFile(rootfilename.c_str(), "RECREATE");
+    TFile *f = new TFile(rootFileName, "RECREATE");
     if (f == NULL) { cout << "could not open root file " << endl; return -1; }
     f->cd();
 
@@ -142,12 +152,8 @@ int process(string filename, int max_dist=3, UInt_t nentries=1000000000)
                                 1000, 0, 0);
 
     //
-    // Open data file
+    // Skip main header
     //
-
-    FILE *fp = fopen(filename.c_str(), "r");
-    cout << filename.c_str() << endl;
-    if (fp == NULL) { cout << "can not open file: " << filename.c_str() << endl; return -1;}
 
     UInt_t sphdr_id;
     UInt_t sphdr_size;
@@ -330,26 +336,28 @@ int process(string filename, int max_dist=3, UInt_t nentries=1000000000)
                 cout << backjumpcnt << " backward time jumps" << endl;
 
                 TCanvas* canvas = new TCanvas("canvas", saveFileName, 1200, 1200);
-                canvas->Divide(3,2);
+                canvas->Divide(2,2);
 
                 canvas->cd(1);
                 canvas->SetLogz();
+                canvas->SetRightMargin(0.2);
+                pixelMap->SetStats(kFALSE);
                 pixelMap->Draw("colz");
 
                 canvas->cd(2);
-                canvas->SetLogz();
-                pixelMapToT->Draw("colz");
-
-                canvas->cd(4);
+                canvas->SetLeftMargin(0.2);
                 histToT->Draw();
 
-                canvas->cd(5);
+                canvas->cd(3);
                 histToA->Draw();
 
-                canvas->cd(6);
-                histTrigger->Draw();
+                if (trigcnt != 0)
+                {
+                    canvas->cd(4);
+                    histTrigger->Draw();
+                }
 
-                canvas->Print("plots.pdf");
+                canvas->Print(saveFileName);
                 canvas->Close();
                 f->cd();
                 f->Write();
