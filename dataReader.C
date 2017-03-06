@@ -93,7 +93,7 @@ void dataReader(char * inFile = "",
 			}
 			myCounter++;
 		}
-	void finish (int myCounter, int lineCounter, int linesPerFile) {
+	finish (myCounter, lineCounter, linesPerFile, Nraw);
 	fclose(myFile);
 	return;
 	}
@@ -144,11 +144,11 @@ void dataReader(char * inFile = "",
 			}
 		}
 	}
-	void finish (int myCounter, int lineCounter, int linesPerFile) {
+	finish (myCounter, lineCounter, linesPerFile, Nraw);
 	fclose(myFile);
 }
 
-void finish (int myCounter, int lineCounter, int linesPerFile) {
+void finish (int myCounter, int lineCounter, int linesPerFile, int Nraw) {
 	cout << "==============================================="  << endl;
 	cout << "============  JOB IS DONE !!!  ================"  << endl;
 	cout << "==============================================="  << endl;
