@@ -66,10 +66,11 @@ void dataReader(char * inFile = "",
 	for (int i = 0; i < Ntime; i++) {
 		if (i % 500 == 0) cout << i  << " out of " << Ntime << " done!" << endl;
 		timetree->GetEntry(i);
-		if (i) {
+/*		if (i) {
 			ULong64_t diff = 6.1*(TrigTime - lastTrig);
 			lastTrig = TrigTime;
 		}
+		*/
 		for (int j = currChunk; j < Nraw; j++) {
 			rawtree->GetEntry(j);
 			if (GlobalTimesFine[0] < TrigTime || nhits < nHitsCut) {
