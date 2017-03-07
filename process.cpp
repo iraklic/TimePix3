@@ -339,13 +339,12 @@ int process(TString filename, int max_dist=3, UInt_t nentries=1000000000)
                 canvas->Divide(2,2);
 
                 canvas->cd(1);
-                canvas->SetLogz();
-                canvas->SetRightMargin(0.2);
+                gPad->SetLogz();
+                gPad->SetRightMargin(0.15);
                 pixelMap->SetStats(kFALSE);
                 pixelMap->Draw("colz");
 
                 canvas->cd(2);
-                canvas->SetLeftMargin(0.2);
                 histToT->Draw();
 
                 canvas->cd(3);
