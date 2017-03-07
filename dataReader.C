@@ -68,7 +68,7 @@ void dataReader(char * inFile = "",
 	ULong64_t lastTrig = 0;
 
 //	THIS IS DONE WHEN timetree IS EMPTY, WHICH IS WHEN TRIGGER IS NOT AVAILABLE DURING DATA TAKING
-	if (Ntime == 0) {
+	if (Ntime == 0 || noTrigWindow) {
 		for (int j = 0; j < Nraw; j++) {
 			rawtree->GetEntry(j);
 			if (j % 10000 == 0) cout << j << " of " << Nraw << " done!" << endl;
@@ -80,7 +80,7 @@ void dataReader(char * inFile = "",
 					fprintf(myFile, "TrigId");
 					if (bCol) fprintf(myFile, ",Col");
 					if (bRow) fprintf(myFile, ",Row");
-					if (bToA) fprintf(myFile, ",ToA");
+//					if (bToA) fprintf(myFile, ",ToA");
 					if (bToT) fprintf(myFile, ",ToT");
 					if (bGTF) fprintf(myFile, ",GlobalTimeFine");
 					fprintf(myFile, "\n");
@@ -93,7 +93,7 @@ void dataReader(char * inFile = "",
 					myFile = fopen(outFile, "w");
 					if (bCol) fprintf(myFile, "Col");
 					if (bRow) fprintf(myFile, ",Row");
-					if (bToA) fprintf(myFile, ",ToA");
+//					if (bToA) fprintf(myFile, ",ToA");
 					if (bToT) fprintf(myFile, ",ToT");
 					if (bGTF) fprintf(myFile, ",GlobalTimeFine");
 					fprintf(myFile, "\n");
@@ -116,20 +116,15 @@ void dataReader(char * inFile = "",
 	}
 
 	for (int i = 0; i < Ntime; i++) {
-		if (i % 500 == 0) cout << i  << " out of " << Ntime << " done!" << endl;
 		timetree->GetEntry(i);
-/*		if (i) {
-			ULong64_t diff = 6.1*(TrigTime - lastTrig);
-			lastTrig = TrigTime;
-		}
-		*/
+		if (i % 50 == 0) cout << i  << " out of " << Ntime << " done!" << endl;
 		for (int j = currChunk; j < Nraw; j++) {
 			rawtree->GetEntry(j);
 			if (GlobalTimesFine[0] < TrigTime || nhits < nHitsCut) {
 				currChunk = j;
 				continue;
 			}
-			if ((GlobalTimesFine[0] > (TrigTime + windowCut/6.1*1000000)) && !noTrigWindow) {
+			if (GlobalTimesFine[0] > (TrigTime + windowCut/6.1*1000000)) {
 				currChunk = j;
 				break;
 			}
@@ -147,6 +142,7 @@ void dataReader(char * inFile = "",
 						if (bGTF) fprintf(myFile, ",GlobalTimeFine");
 						fprintf(myFile, "\n");
 						fileCounter++;
+						cout << "File Number " << fileCounter << " : " << myFile << " is open." << endl; 
 					}
 					if (lineCounter % linesPerFile == 0 && !singleFile) {
 						char outFile[300];

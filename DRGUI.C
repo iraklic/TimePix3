@@ -91,7 +91,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	bNoTrigWindow = false;
 	bSingleFile = false;
 
-	linesPerFile = 50000;
+	linesPerFile = 100000;
 	nHitsCut = 1;
 	timeWindow = 40;
 
