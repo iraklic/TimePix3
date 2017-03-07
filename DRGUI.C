@@ -18,17 +18,23 @@ const char * fileTypes[] = {
 
 class TextMargin : public TGHorizontalFrame {
 	protected:
-	TGNumberEntry *fEntry;
+	TGNumberEntry * fEntry;
+	TGLabel * label;
 
 	public:
 	TextMargin(const TGWindow *p, const char *name) : TGHorizontalFrame(p) {
 		fEntry = new TGNumberEntry(this, 0, 6, -1, TGNumberFormat::kNESInteger);
 		AddFrame(fEntry, new TGLayoutHints(kLHintsLeft));
-		TGLabel *label = new TGLabel(this, name);
+		label = new TGLabel(this, name);
 		AddFrame(label, new TGLayoutHints(kLHintsLeft, 10));
 	}
 	TGTextEntry * GetEntry() const { return fEntry->GetNumberEntry(); }
 	void SetEntry(int entry) { fEntry->SetNumber(entry); }
+	void SetEnabled(bool state) {
+		fEntry->SetState(!state);
+		if (label->IsDisabled()) label->Enable();
+		else label->Disable();
+	}
 
 	ClassDef(TextMargin, 0)
 };
@@ -47,6 +53,9 @@ class DRGui : public TGMainFrame {
 	bool bToT;
 	bool bGTF;
 
+	bool bSingleFile;
+	bool bNoTrigWindow;
+
 	int nHitsCut;
 	int timeWindow;
 	int linesPerFile;
@@ -62,6 +71,8 @@ class DRGui : public TGMainFrame {
 	void SelectToA(Bool_t);
 	void SelectToT(Bool_t);
 	void SelectGTF(Bool_t);
+	void SelectSingleFile(Bool_t);
+	void SelectNoTrigWindow(Bool_t);
 
 	void Browse();
 
@@ -77,6 +88,8 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	bToA = true;
 	bToT = true;
 	bGTF = true;
+	bNoTrigWindow = false;
+	bSingleFile = false;
 
 	linesPerFile = 50000;
 	nHitsCut = 1;
@@ -155,11 +168,15 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	TextMargin * nhits = new TextMargin(cuts, "nhits");
 	TextMargin * timeW = new TextMargin(cuts, "Time Window (micro s)");
 	timeW->SetEntry(40);
+	TGCheckButton * noTrigWindow = new TGCheckButton(cuts, "All Data");
 
 	cuts->AddFrame(nhits, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
 	cuts->AddFrame(timeW, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
+	cuts->AddFrame(noTrigWindow, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
 
 	nhits->GetEntry()->Connect("TextChanged(char*)", "DRGui", this, "ApplyCutsHits(char*)");
+	noTrigWindow->Connect("Toggled(Bool_t)", "TextMargin", timeW, "SetEnabled(Bool_t)");
+	noTrigWindow->Connect("Toggled(Bool_t)", "DRGui", this, "SelectNoTrigWindow(Bool_t)");
 	timeW->GetEntry()->Connect("TextChanged(char*)", "DRGui", this, "ApplyCutsTime(char*)");
 
 	controls->AddFrame(cuts, new TGLayoutHints(kLHintsExpandX));
@@ -168,10 +185,16 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	TGGroupFrame * outControl = new TGGroupFrame(controls, "Output File");
 	outControl->SetTitlePos(TGGroupFrame::kCenter);
 
+	TGCheckButton * singleFile = new TGCheckButton(outControl, "Single File");
 	TextMargin * nLines = new TextMargin(outControl, "Lines per File");
+
+	outControl->AddFrame(singleFile, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
 	outControl->AddFrame(nLines, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
+
 	nLines->SetEntry(100000);
 	nLines->GetEntry()->Connect("TextChanged(char*)", "DRGui", this, "ApplyCutsLines(char*)");
+	singleFile->Connect("Toggled(Bool_t)", "TextMargin", nLines, "SetEnabled(Bool_t)");
+	singleFile->Connect("Toggled(Bool_t)", "DRGui", this, "SelectSingleFile(Bool_t)");
 
 	controls->AddFrame(outControl, new TGLayoutHints(kLHintsExpandX));
 
@@ -194,7 +217,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 void DRGui::RunReducer() {
 	int err = 0;
 	char cmd[500];
-	sprintf(cmd,".x dataReader.C(\"%s\", %d, %d, %d, %d, %d, %d, %d, %d)",
+	sprintf(cmd,".x dataReader.C(\"%s\", %d, %d, %d, %d, %d, %d, %d, %d, %d, %d)",
 		       	rootFile->GetText(),
 			bCol,
 			bRow,
@@ -202,7 +225,9 @@ void DRGui::RunReducer() {
 			bToT,
 			bGTF,
 			nHitsCut,
+			bNoTrigWindow,
 			timeWindow,
+			bSingleFile,
 			linesPerFile
 			);
 
@@ -219,6 +244,8 @@ void DRGui::SelectRow(Bool_t check) { bRow = check; }
 void DRGui::SelectToA(Bool_t check) { bToA = check; }
 void DRGui::SelectToT(Bool_t check) { bToT = check; }
 void DRGui::SelectGTF(Bool_t check) { bGTF = check; }
+void DRGui::SelectSingleFile(Bool_t check) { bSingleFile = check; }
+void DRGui::SelectNoTrigWindow(Bool_t check) { bNoTrigWindow = check; }
 
 void DRGui::Browse() {
 	static TString dir(".");

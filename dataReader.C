@@ -8,10 +8,12 @@ void dataReader(char * inFile = "",
 		bool bCol = true, 
 		bool bRow = true, 
 		bool bToA = true, 
-		bool bToT = true, 
-		bool bGTF = true, 
-		int nHitsCut = 0, 
+		bool bToT = true,
+		bool bGTF = true,
+		int nHitsCut = 0,
+		bool noTrigWindow = false,
 		int windowCut = 40, 
+		bool singleFile = false,
 		int linesPerFile = 50000) {
 	if (inFile == "") {
 		cout << "Please provide fule to reduce : root -l 'dataReader(\"<filename.root>\")'" << endl;
@@ -62,6 +64,7 @@ void dataReader(char * inFile = "",
 	int currChunk = 0;
 	int myCounter = 0;
 	int lineCounter = 0;
+	int fileCounter = 0;
 	ULong64_t lastTrig = 0;
 
 //	THIS IS DONE WHEN timetree IS EMPTY, WHICH IS WHEN TRIGGER IS NOT AVAILABLE DURING DATA TAKING
@@ -70,7 +73,20 @@ void dataReader(char * inFile = "",
 			rawtree->GetEntry(j);
 			if (j % 10000 == 0) cout << j << " of " << Nraw << " done!" << endl;
 			for (int k = 0; k < nhits; k++) {
-				if (lineCounter % linesPerFile == 0) {
+				if (singleFile && fileCounter == 0) {
+					char outFile[300];
+					sprintf(outFile, "%s.csv", soutFile.c_str());
+					myFile = fopen(outFile, "w");
+					fprintf(myFile, "TrigId");
+					if (bCol) fprintf(myFile, ",Col");
+					if (bRow) fprintf(myFile, ",Row");
+					if (bToA) fprintf(myFile, ",ToA");
+					if (bToT) fprintf(myFile, ",ToT");
+					if (bGTF) fprintf(myFile, ",GlobalTimeFine");
+					fprintf(myFile, "\n");
+					fileCounter++;
+				}
+				if (lineCounter % linesPerFile == 0 && !singleFile) {
 					char outFile[300];
 					sprintf(outFile, "%s_%d.csv", soutFile.c_str(), lineCounter / linesPerFile);
 					cout << "Oppening file : " << outFile << endl;
@@ -81,6 +97,7 @@ void dataReader(char * inFile = "",
 					if (bToT) fprintf(myFile, ",ToT");
 					if (bGTF) fprintf(myFile, ",GlobalTimeFine");
 					fprintf(myFile, "\n");
+					fileCounter++;
 				}
 
 				if (bCol) fprintf(myFile, "%d", Cols[k]);
@@ -93,7 +110,7 @@ void dataReader(char * inFile = "",
 			}
 			myCounter++;
 		}
-	finish (myCounter, lineCounter, linesPerFile, Nraw);
+	finish (myCounter, fileCounter, Nraw);
 	fclose(myFile);
 	return;
 	}
@@ -112,13 +129,26 @@ void dataReader(char * inFile = "",
 				currChunk = j;
 				continue;
 			}
-			if (GlobalTimesFine[0] > (TrigTime + windowCut/6.1*1000000)) {
+			if ((GlobalTimesFine[0] > (TrigTime + windowCut/6.1*1000000)) && !noTrigWindow) {
 				currChunk = j;
 				break;
 			}
 			else {
 				for (int k = 0; k < nhits; k++) {
-					if (lineCounter % linesPerFile == 0) {
+					if (singleFile && fileCounter == 0) {
+						char outFile[300];
+						sprintf(outFile, "%s.csv", soutFile.c_str());
+						myFile = fopen(outFile, "w");
+						fprintf(myFile, "TrigId");
+						if (bCol) fprintf(myFile, ",Col");
+						if (bRow) fprintf(myFile, ",Row");
+						if (bToA) fprintf(myFile, ",ToA");
+						if (bToT) fprintf(myFile, ",ToT");
+						if (bGTF) fprintf(myFile, ",GlobalTimeFine");
+						fprintf(myFile, "\n");
+						fileCounter++;
+					}
+					if (lineCounter % linesPerFile == 0 && !singleFile) {
 						char outFile[300];
 						sprintf(outFile, "%s_%d.csv", soutFile.c_str(), lineCounter / linesPerFile);
 						myFile = fopen(outFile, "w");
@@ -129,6 +159,7 @@ void dataReader(char * inFile = "",
 						if (bToT) fprintf(myFile, ",ToT");
 						if (bGTF) fprintf(myFile, ",GlobalTimeFine");
 						fprintf(myFile, "\n");
+						fileCounter++;
 					}
 
 					fprintf(myFile, "%d", i);
@@ -144,16 +175,16 @@ void dataReader(char * inFile = "",
 			}
 		}
 	}
-	finish (myCounter, lineCounter, linesPerFile, Nraw);
+	finish (myCounter, fileCounter, Nraw);
 	fclose(myFile);
 }
 
-void finish (int myCounter, int lineCounter, int linesPerFile, int Nraw) {
+void finish (int myCounter, int fileCounter, int Nraw) {
 	cout << "==============================================="  << endl;
 	cout << "============  JOB IS DONE !!!  ================"  << endl;
 	cout << "==============================================="  << endl;
 	cout << "====  " << myCounter << " events from total of " << Nraw << " selected!"  << endl;
-	cout << "====  " << lineCounter / linesPerFile << " FILES WRITTEN OUT!!!"  << endl;
+	cout << "====  " << fileCounter << " FILE(S) WRITTEN OUT!!!"  << endl;
 	cout << "==============================================="  << endl;
 
 }
