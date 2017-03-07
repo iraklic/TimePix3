@@ -115,7 +115,7 @@ int process(TString filename, int max_dist=3, UInt_t nentries=1000000000)
     rawtree->Branch("Col", &Col, "Col/I");
     rawtree->Branch("Row", &Row, "Row/I");
     rawtree->Branch("ToT", &ToT, "ToT/I");
-    rawtree->Branch("ToA", &ToA, "ToAs/I");
+    rawtree->Branch("ToA", &ToA, "ToA/l");
 
     TTree *timetree = new TTree("timetree", "tpx3 camera, March 2017");
     timetree->Branch("TrigCntr", &trigcntr, "TrigCntr/i");
