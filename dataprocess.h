@@ -2,15 +2,24 @@
 #define DATAPROCESS_H
 
 #include "TString.h"
+#include "TStopwatch.h"
 
 #include "TTree.h"
 #include "TH1.h"
 #include "TH2.h"
 
+enum ProcType
+{
+    procDat     = 0,
+    procRoot    = 1,
+    procAll     = 2
+};
+
 class DataProcess
 {
 public:
-    void DataProcess(UInt_t nEntries);
+    Int_t DataProcess(ProcType process, UInt_t nEntries);
+    Int_t readOptions(Bool_t bCol, Bool_t bRow, Bool_t bToT, Bool_t bToA, Bool_t bTrig, Bool_t bTrigToA, Int_t nHitsCut, Bool_t noTrigWindow, Int_t windowCut, Bool_t singleFile, Int_t linesPerFile);
     Int_t processDat();
     Int_t processRoot();
     void plotStandardData();
@@ -26,9 +35,25 @@ private:
 
 private:
     //
-    // global variables - max number of entries, variable that decides if opening dat or root file
-    //    Int_t var; //??
-    UInt_t   m_maxEntries;
+    // global variables
+    Bool_t m_bCol = kTRUE;
+    Bool_t m_bRow = kTRUE;
+    Bool_t m_bToT = kTRUE;
+    Bool_t m_bToA = kTRUE;
+    Bool_t m_bTrig = kTRUE;
+    Bool_t m_bTrigToA = kTRUE;
+
+    Bool_t m_noTrigWindow = kFALSE;
+    Bool_t m_singleFile = kFALSE;
+
+    Int_t m_nHitsCut = 0;
+    Int_t m_windowCut = 40;
+    Int_t m_linesPerFile = 100000;
+
+    ProcType    m_process;
+    UInt_t      m_maxEntries;
+    TStopwatch  m_time;
+
 
     //
     // file names
@@ -48,6 +73,9 @@ private:
     TTree* m_rawTree;
     TTree* m_timeTree;
     TTree* m_longTimeTree;
+
+    const Int_t m_nRaw;
+    const Int_t m_nTime;
 
     //
     // ROOT histograms

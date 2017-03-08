@@ -6,8 +6,6 @@
 #include <deque>
 
 #include "TFile.h"
-#include "TStopwatch.h"
-
 #include "TCanvas.h"
 
 
@@ -15,10 +13,85 @@
 
 using namespace std;
 
-void DataProcess::DataProcess(UInt_t nEntries = 1000000000):
+Int_t DataProcess::DataProcess(TString fileNameInput, ProcType process = procDat, UInt_t nEntries = 1000000000):
+    m_fileNameInput(fileNameInput),
+    m_process(process),
     m_maxEntries(nEntries)
 {
+    m_time.Start();
 
+    //
+    // create filenames
+    processFileNames();
+
+    //
+    // switch to decide what to do with the input
+    // either open dat file, root file or both
+    // close files after finished with them
+    // at closing of the root file, create plots
+    switch (m_process)
+    {
+        case procDat:
+            if (! openDat()) return -1;
+            processDat();
+            closeDat();
+
+            break;
+        case procRoot:
+            if (! openRoot()) return -1;
+            processRoot();
+            closeRoot();
+
+            break;
+        case procAll:
+            if (! openDat()) return -1;
+            if (! openRoot()) return -1;
+            processDat();
+            processRoot();
+            closeDat();
+            closeRoot();
+
+            break;
+        default :
+            cout << " ========================================== " << endl;
+            cout << " ====== COULD NOT DECIDE WHAT TO DO ======= " << endl;
+            cout << " ========================================== " << endl;
+
+            return -2;
+    }
+
+    //
+    // print time of the code execution to the console
+    m_time.Stop();
+    m_time.Print();
+
+    return 0;
+}
+
+Int_t DataProcess::readOptions(Bool_t bCol = kTRUE,
+                               Bool_t bRow = kTRUE,
+                               Bool_t bToT = kTRUE,
+                               Bool_t bToA = kTRUE,
+                               Bool_t bTrig = kTRUE,
+                               Bool_t bTrigToA = kTRUE,
+                               Int_t  nHitsCut = 0,
+                               Bool_t noTrigWindow = kFALSE,
+                               Int_t  windowCut = 40,
+                               Bool_t singleFile = kFALSE,
+                               Int_t  linesPerFile = 100000)
+{
+    m_bCol          = bCol;
+    m_bRow          = bRow;
+    m_bToT          = bToT;
+    m_bToA          = bToA;
+    m_bTrig         = bTrig;
+    m_bTrigToA      = bTrigToA;
+    m_noTrigWindow  = noTrigWindow;
+    m_singleFile    = singleFile;
+    m_nHitsCut      = nHitsCut;
+    m_windowCut     = windowCut;
+    m_linesPerFile  = linesPerFile;
+    return 0;
 }
 
 void DataProcess::plotStandardData()
@@ -63,7 +136,7 @@ void DataProcess::plotStandardData()
     canvas->Close();
 }
 
-void DataProcess::processNames()
+void DataProcess::processFileNames()
 {
     UInt_t slash = m_fileNameInput.Last('/');
     m_fileNameInput.Remove(0,slash+1);
@@ -82,7 +155,9 @@ Int_t DataProcess::openDat()
 
     if (m_fileDat == NULL)
     {
-        cout << "Cannot open .dat file: " << m_fileNameDat << endl;
+        cout << " ========================================== " << endl;
+        cout << " == COULD NOT OPEN DAT, PLEASE CHECK IT === " << endl;
+        cout << " ========================================== " << endl;
         return -1;
     }
     return 0;
@@ -92,52 +167,89 @@ Int_t DataProcess::openRoot()
 {
     //
     // Open file
-    m_fileRoot = new TFile(m_fileNameRoot, "RECREATE");
-    cout << m_fileNameRoot << endl;
-
-    if (m_fileRoot == NULL)
+    if ( m_process == procDat || m_process == procAll)
     {
-        cout << "Cannot open .root file: " << m_fileNameRoot << endl;
-        return -1;
+        m_fileRoot = new TFile(m_fileNameRoot, "RECREATE");
+        cout << m_fileNameRoot << endl;
+
+        //
+        // check if file opened correctly
+        if (m_fileRoot == NULL)
+        {
+            cout << " ========================================== " << endl;
+            cout << " == COULD NOT OPEN ROOT, PLEASE CHECK IT == " << endl;
+            cout << " ========================================== " << endl;
+            return -1;
+        }
+
+        //
+        // create trees
+        m_rawTree = new TTree("rawtree", "Tpx3 camera, March 2017");
+        m_rawTree->Branch("Col", &m_col, "Col/I");
+        m_rawTree->Branch("Row", &m_row, "Row/I");
+        m_rawTree->Branch("ToT", &m_ToT, "ToT/I");
+        m_rawTree->Branch("ToA", &m_ToA, "ToA/l");    // l for long
+
+        m_timeTree = new TTree("timetree", "Tpx3 camera, March 2017");
+        m_timeTree->Branch("TrigCntr", &m_trigCnt, "TrigCntr/i");
+        m_timeTree->Branch("TrigTime", &m_trigTime,"TrigTimeGlobal/l");
+
+        m_longTimeTree = new TTree("m_longTimeTree", "tpx3 telescope, May 2015");
+        m_longTimeTree->Branch("LongTime", &longtime, "LongTime/l");
+
+        //
+        // create plots
+        m_pixelMap      = new TH2I("pixelMap", "Col:Row", 256, -0.5, 255.5, 256, -0.5, 255.5);
+        m_pixelMapToT   = new TH2F("pixelMapToT", "Col:Row:ToT", 256, -0.5, 255.5, 256, -0.5, 255.5);
+        m_pixelMapToA   = new TH2F("pixelMapToA", "Col:Row:ToA", 256, -0.5, 255.5, 256, -0.5, 255.5);
+
+        m_ToAvsToT      = new TH2I("ToAvsToT", "ToA:ToT", 100, 0, 0, 100, 0, 0);
+
+        m_histToT       = new TH1I("histToT", "ToT", 100, 0, 0);
+        m_histToA       = new TH1I("histToA", "ToA", 100, 0, 0);
+        m_histTrigger   = new TH1I("histTrigger", "Trigger", 1000, 0, 0);
+    }
+    else if (m_process == procRoot)
+    {
+        m_fileRoot = new TFile(m_fileNameRoot, "READ");
+        cout << m_fileNameRoot << endl;
+
+        //
+        // check if file opened correctly
+        if (m_fileRoot == NULL)
+        {
+            cout << " ========================================== " << endl;
+            cout << " == COULD NOT OPEN ROOT, PLEASE CHECK IT == " << endl;
+            cout << " ========================================== " << endl;
+            return -1;
+        }
+
+        //
+        // read trees
+        m_rawTree = (TTree * ) m_fileRoot->Get("rawtree");
+        m_rawTree->SetBranchAddress("Col", m_col);
+        m_rawTree->SetBranchAddress("Row", m_row);
+        m_rawTree->SetBranchAddress("ToT", m_ToT);
+        m_rawTree->SetBranchAddress("ToA", m_ToA);
+
+        m_timeTree = (TTree * ) m_fileRoot->Get("timetree");
+        m_timeTree->SetBranchAddress("TrigCntr", &m_trigCnt);
+        m_timeTree->SetBranchAddress("TrigTime", &m_trigTime);
+
+        //
+        // read plots
+        m_pixelMap      = (TH2I *) m_fileRoot->Get("pixelMap");
+        m_pixelMapToT   = (TH2F *) m_fileRoot->Get("pixelMapToT");
+        m_pixelMapToA   = (TH2F *) m_fileRoot->Get("pixelMapToA");
+
+        m_ToAvsToT      = (TH2I *) m_fileRoot->Get("ToAvsToT");
+
+        m_histToT       = (TH1I *) m_fileRoot->Get("histToT");
+        m_histToA       = (TH1I *) m_fileRoot->Get("histToA");
+        m_histTrigger   = (TH1I *) m_fileRoot->Get("histTrigger");
     }
 
     m_fileRoot->cd();
-
-    // ==============================
-    // must add checking to start from root file, not from dat file
-    // ==============================
-    //    m_rawTree->SetBranchAddress("Col", m_col);
-    //    m_rawTree->SetBranchAddress("Row", m_row);
-    //    m_rawTree->SetBranchAddress("ToT", m_ToT);
-    //    m_rawTree->SetBranchAddress("ToA", m_ToA);
-    // ==============================
-
-    //
-    // Create trees
-    m_rawTree = new TTree("m_rawTree", "Tpx3 camera, March 2017");
-    m_rawTree->Branch("Col", &m_col, "Col/I");
-    m_rawTree->Branch("Row", &m_row, "Row/I");
-    m_rawTree->Branch("ToT", &m_ToT, "ToT/I");
-    m_rawTree->Branch("ToA", &m_ToA, "ToA/l");    // l for long
-
-    m_timeTree = new TTree("m_timeTree", "Tpx3 camera, March 2017");
-    m_timeTree->Branch("TrigCntr",      &m_trigCnt, "TrigCntr/i");
-    m_timeTree->Branch("TrigTimeGlobal",&m_trigTime,"TrigTimeGlobal/l");
-
-    m_longTimeTree = new TTree("m_longTimeTree", "tpx3 telescope, May 2015");
-    m_longTimeTree->Branch("LongTime", &longtime, "LongTime/l");
-
-    //
-    // Create plots
-    m_pixelMap = new TH2I("pixelMap", "Col:Row", 256, -0.5, 255.5, 256, -0.5, 255.5);
-    m_pixelMapToT = new TH2F("pixelMapToT", "Col:Row:ToT", 256, -0.5, 255.5, 256, -0.5, 255.5);
-    m_pixelMapToA = new TH2F("pixelMapToA", "Col:Row:ToA", 256, -0.5, 255.5, 256, -0.5, 255.5);
-
-    m_ToAvsToT = new TH2I("ToAvsToT", "ToA:ToT", 100, 0, 0, 100, 0, 0);
-
-    m_histToT = new TH1I("histToT", "ToT", 100, 0, 0);
-    m_histToA = new TH1I("histToA", "ToA", 100, 0, 0);
-    m_histTrigger = new TH1I("histTrigger", "Trigger", 1000, 0, 0);
 
     return 0;
 }
@@ -158,13 +270,8 @@ void DataProcess::closeRoot()
 
 Int_t DataProcess::processDat()
 {
-    TStopwatch time;
-    time.Start();
-
     //
-    // Define all locally needed variables
-    //
-
+    // define all locally needed variables
     ULong64_t pixdata;
     ULong64_t longtime = 0;
     ULong64_t longtime_lsb = 0;
@@ -208,21 +315,7 @@ Int_t DataProcess::processDat()
     TNamed *deviceID = new TNamed("deviceID", "device ID not set");
 
     //
-    // Open data file
-    //
-
-    if (! openDat()) return -1;
-
-    //
-    // Create ROOT file and histograms
-    //
-
-    if (! openRoot()) return -1;
-
-    //
-    // Skip main header
-    //
-
+    // skip main header
     UInt_t sphdr_id;
     UInt_t sphdr_size;
     retVal = fread( &sphdr_id, sizeof(UInt_t), 1, m_fileNameDat);
@@ -439,16 +532,6 @@ Int_t DataProcess::processDat()
             // end of read data
             if (Cols.size() == 0)
             {
-                //
-                // print time of the code execution to the console
-                time.Stop();
-                time.Print();
-
-                //
-                // close dat and ROOT files (plot histograms at closing ROOT)
-                closeDat();
-                closeRoot();
-
                 cout << "OK1 found " << pcnt << " pixel packets" << endl;
                 cout << backjumpcnt << " backward time jumps" << endl;
 
@@ -457,9 +540,12 @@ Int_t DataProcess::processDat()
         }
     }
 
-    closeDat();
-    closeRoot();
-
     cout << "Wrong exit... found " << pcnt << " pixel packets" << endl;
     return 0;
+}
+
+Int_t DataProcess::processRoot()
+{
+    m_nRaw = m_rawTree->GetEntries();
+    m_nTime = m_timeTree->GetEntries();
 }
