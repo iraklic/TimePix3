@@ -24,16 +24,18 @@ enum ProcType
 class DataProcess
 {
 public:
-    DataProcess(TString fileNameInput, ProcType process = procAll, UInt_t nEntries = 1000000000);
-    Int_t readOptions(Bool_t bCol = kTRUE,
+    DataProcess(TString fileNameInput);
+    void setName(TString fileNameInput);
+    void setProcess(ProcType process);
+    void setNEntries(UInt_t nEntries);
+    Int_t setOptions(Bool_t bCol = kTRUE,
                       Bool_t bRow = kTRUE,
                       Bool_t bToT = kTRUE,
                       Bool_t bToA = kTRUE,
                       Bool_t bTrig = kTRUE,
                       Bool_t bTrigToA = kTRUE,
-                      Int_t  nHitsCut = 0,
-                      Bool_t noTrigWindow = kFALSE,
-                      Int_t  windowCut = 40,
+                      Bool_t bNoTrigWindow = kFALSE,
+                      Int_t  timeWindow = 40,
                       Bool_t singleFile = kFALSE,
                       Int_t  linesPerFile = 100000);
     Int_t process();
@@ -69,17 +71,16 @@ private:
     Bool_t m_bToA;
     Bool_t m_bTrig;
     Bool_t m_bTrigToA;
+    Bool_t m_bNoTrigWindow;
+    Bool_t m_bSingleFile;
 
-    Bool_t m_noTrigWindow;
-    Bool_t m_singleFile;
-
-    Int_t m_nHitsCut;
-    Int_t m_windowCut;
+    Int_t m_timeWindow;
     Int_t m_linesPerFile;
 
     //
     // file names
     TString m_fileNameInput;
+    TString m_fileNamePath;
     TString m_fileNameDat;
     TString m_fileNameRoot;
     TString m_fileNamePdf;
@@ -105,11 +106,12 @@ private:
     TH2F* m_pixelMapToT;
     TH2F* m_pixelMapToA;
 
-    TH2I* m_ToAvsToT;
-
     TH1I* m_histToT;
     TH1I* m_histToA;
+    TH2I* m_ToAvsToT;
+
     TH1I* m_histTrigger;
+    TH1I* m_histTriggerToA;
 
     //
     // single pixel data

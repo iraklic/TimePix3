@@ -9,12 +9,59 @@
 
 using namespace std;
 
-DataProcess::DataProcess(TString fileNameInput, ProcType process, UInt_t nEntries):
-    m_fileNameInput(fileNameInput),
-    m_process(process),
-    m_maxEntries(nEntries)
+DataProcess::DataProcess(TString fileNameInput)
 {
-    ;
+    m_maxEntries = 1000000000;
+    m_process = procAll;
+    m_fileNameInput = fileNameInput;
+}
+
+void DataProcess::setName(TString fileNameInput)
+{
+    m_fileNameInput = fileNameInput;
+}
+
+void DataProcess::setProcess(ProcType process)
+{
+    m_process = process;
+}
+
+void DataProcess::setNEntries(UInt_t nEntries)
+{
+    m_maxEntries = nEntries;
+}
+
+Int_t DataProcess::setOptions(Bool_t bCol,
+                               Bool_t bRow,
+                               Bool_t bToT,
+                               Bool_t bToA,
+                               Bool_t bTrig,
+                               Bool_t bTrigToA,
+                               Bool_t bNoTrigWindow,
+                               Int_t timeWindow,
+                               Bool_t singleFile,
+                               Int_t linesPerFile)
+{
+    m_bCol          = bCol;
+    m_bRow          = bRow;
+    m_bToT          = bToT;
+    m_bToA          = bToA;
+    m_bTrig         = bTrig;
+    m_bTrigToA      = bTrigToA;
+    m_bNoTrigWindow = bNoTrigWindow;
+    m_bSingleFile   = singleFile;
+    m_timeWindow    = timeWindow;
+    m_linesPerFile  = linesPerFile;
+
+    if (m_timeWindow > 500)
+    {
+            cout << " ========================================== " << endl;
+            cout << " === " << timeWindow << " ms is very large winwdow!!!" << endl;
+            cout << " ========================================== " << endl;
+            return -1;
+    }
+
+    return 0;
 }
 
 Int_t DataProcess::process()
@@ -33,30 +80,26 @@ Int_t DataProcess::process()
     switch (m_process)
     {
         case procDat:
-            if (! openDat()) return -1;
-            if (! openRoot()) return -1;
+            if ( openDat()) return -1;
+            if ( openRoot()) return -1;
             processDat();
             closeDat();
             closeRoot();
 
             break;
         case procRoot:
-            if (! openRoot()) return -1;
-//            if (! openCsv()) return -1;
+            if ( openRoot()) return -1;
             processRoot();
             closeRoot();
-//            closeCsv();
 
             break;
         case procAll:
-            if (! openDat()) return -1;
-            if (! openRoot()) return -1;
-//            if (! openCsv()) return -1;
+            if ( openDat()) return -1;
+            if ( openRoot()) return -1;
             processDat();
             processRoot();
             closeDat();
             closeRoot();
-//            closeCsv();
 
             break;
         default :
@@ -75,45 +118,19 @@ Int_t DataProcess::process()
     return 0;
 }
 
-Int_t DataProcess::readOptions(Bool_t bCol,
-                               Bool_t bRow,
-                               Bool_t bToT,
-                               Bool_t bToA,
-                               Bool_t bTrig,
-                               Bool_t bTrigToA,
-                               Int_t nHitsCut,
-                               Bool_t noTrigWindow,
-                               Int_t windowCut,
-                               Bool_t singleFile,
-                               Int_t linesPerFile)
-{
-    m_bCol          = bCol;
-    m_bRow          = bRow;
-    m_bToT          = bToT;
-    m_bToA          = bToA;
-    m_bTrig         = bTrig;
-    m_bTrigToA      = bTrigToA;
-    m_noTrigWindow  = noTrigWindow;
-    m_singleFile    = singleFile;
-    m_nHitsCut      = nHitsCut;
-    m_windowCut     = windowCut;
-    m_linesPerFile  = linesPerFile;
-
-    if (m_windowCut > 500)
-    {
-            cout << " ========================================== " << endl;
-            cout << " === " << windowCut << " ms is very large winwdow!!!" << endl;
-            cout << " ========================================== " << endl;
-            return -1;
-    }
-
-    return 0;
-}
-
 void DataProcess::plotStandardData()
 {
-    TCanvas* canvas = new TCanvas("canvas", m_fileNamePdf, 1200, 800);
-    canvas->Divide(3,2);
+    TCanvas* canvas;
+    if (m_trigCnt != 0)
+    {
+        canvas = new TCanvas("canvas", m_fileNamePdf, 1200, 1200);
+        canvas->Divide(3,3);
+    }
+    else
+    {
+        canvas = new TCanvas("canvas", m_fileNamePdf, 1200, 800);
+        canvas->Divide(3,2);
+    }
 
     canvas->cd(1);
     gPad->SetLogz();
@@ -142,11 +159,14 @@ void DataProcess::plotStandardData()
     canvas->cd(6);
     m_histToA->Draw();
 
-//    if (m_trigCnt != 0)
-//    {
-//        canvas->cd(4);
-//        m_histTrigger->Draw();
-//    }
+    if (m_trigCnt != 0)
+    {
+        canvas->cd(7);
+        m_histTrigger->Draw();
+
+        canvas->cd(8);
+        m_histTriggerToA->Draw();
+    }
 
     canvas->Print(m_fileNamePdf);
     canvas->Close();
@@ -155,6 +175,7 @@ void DataProcess::plotStandardData()
 void DataProcess::processFileNames()
 {
     UInt_t slash = m_fileNameInput.Last('/');
+    m_fileNamePath = m_fileNameInput(0,slash+1);
     m_fileNameInput.Remove(0,slash+1);
     UInt_t dotPos = m_fileNameInput.Last('.');
 
@@ -166,8 +187,8 @@ void DataProcess::processFileNames()
 
 Int_t DataProcess::openDat()
 {
-    m_fileDat = fopen(m_fileNameDat, "r");
-    cout << m_fileNameDat << endl;
+    m_fileDat = fopen(m_fileNamePath + m_fileNameDat, "r");
+    cout << m_fileNameDat << " at " << m_fileNamePath << endl;
 
     if (m_fileDat == NULL)
     {
@@ -188,8 +209,8 @@ Int_t DataProcess::openCsv(TString fileCounter)
         fileNameTmp.Replace(dotPos, 200, "[" + fileCounter + "].csv");
     }
 
-    FILE* fileCsv = fopen(fileNameTmp, "w");
-    cout << fileNameTmp << endl;
+    FILE* fileCsv = fopen(m_fileNamePath + fileNameTmp, "w");
+    cout << fileNameTmp << " at " << m_fileNamePath << endl;
 
     if (fileCsv == NULL)
     {
@@ -219,8 +240,8 @@ Int_t DataProcess::openRoot()
     // Open file
     if ( m_process == procDat || m_process == procAll)
     {
-        m_fileRoot = new TFile(m_fileNameRoot, "RECREATE");
-        cout << m_fileNameRoot << endl;
+        m_fileRoot = new TFile(m_fileNamePath + m_fileNameRoot, "RECREATE");
+        cout << m_fileNameRoot << " at " << m_fileNamePath << endl;
 
         //
         // check if file opened correctly
@@ -250,16 +271,17 @@ Int_t DataProcess::openRoot()
         m_pixelMapToT   = new TH2F("pixelMapToT", "Col:Row:ToT", 256, -0.5, 255.5, 256, -0.5, 255.5);
         m_pixelMapToA   = new TH2F("pixelMapToA", "Col:Row:ToA", 256, -0.5, 255.5, 256, -0.5, 255.5);
 
-        m_ToAvsToT      = new TH2I("ToAvsToT", "ToA:ToT", 100, 0, 0, 100, 0, 0);
-
         m_histToT       = new TH1I("histToT", "ToT", 100, 0, 0);
         m_histToA       = new TH1I("histToA", "ToA", 100, 0, 0);
+        m_ToAvsToT      = new TH2I("ToAvsToT", "ToA:ToT", 100, 0, 0, 100, 0, 0);
+
         m_histTrigger   = new TH1I("histTrigger", "Trigger", 1000, 0, 0);
+        m_histTriggerToA= new TH1I("histTriggerToA", "TriggerToA", 1000, 0, 0);
     }
     else if (m_process == procRoot)
     {
-        m_fileRoot = new TFile(m_fileNameRoot, "READ");
-        cout << m_fileNameRoot << endl;
+        m_fileRoot = new TFile(m_fileNamePath + m_fileNameRoot, "READ");
+        cout << m_fileNameRoot << " at " << m_fileNamePath << endl;
 
         //
         // check if file opened correctly
@@ -289,11 +311,12 @@ Int_t DataProcess::openRoot()
         m_pixelMapToT   = (TH2F *) m_fileRoot->Get("pixelMapToT");
         m_pixelMapToA   = (TH2F *) m_fileRoot->Get("pixelMapToA");
 
-        m_ToAvsToT      = (TH2I *) m_fileRoot->Get("ToAvsToT");
-
         m_histToT       = (TH1I *) m_fileRoot->Get("histToT");
         m_histToA       = (TH1I *) m_fileRoot->Get("histToA");
+        m_ToAvsToT      = (TH2I *) m_fileRoot->Get("ToAvsToT");
+
         m_histTrigger   = (TH1I *) m_fileRoot->Get("histTrigger");
+        m_histTriggerToA= new TH1I("histTriggerToA", "TriggerToA", 1000, 0, 0);
     }
 
     m_fileRoot->cd();
@@ -633,7 +656,7 @@ Int_t DataProcess::processRoot()
 
             //
             // stop rawTree loop if further away then trigger+window
-            if (m_nTime!= 0 && m_ToA > (m_trigTime + m_windowCut))
+            if (m_nTime!= 0 && m_ToA > (m_trigTime + m_timeWindow))
             {
                 currChunk = entryRaw;
                 break;
@@ -642,16 +665,16 @@ Int_t DataProcess::processRoot()
             {
                 //
                 // single file creation
-                if (m_singleFile && m_filesCsv.size() == 0)
+                if (m_bSingleFile && m_filesCsv.size() == 0)
                 {
-                    if (! openCsv()) return -1;
+                    if (openCsv()) return -1;
                 }
 
                 //
                 // multiple file creation
-                if (lineCounter % m_linesPerFile == 0 && !m_singleFile)
+                if (lineCounter % m_linesPerFile == 0 && !m_bSingleFile)
                 {
-                    if (! openCsv(TString::Format("%d", lineCounter / m_linesPerFile))) return -1;
+                    if (openCsv(TString::Format("%d", lineCounter / m_linesPerFile))) return -1;
                 }
 
                 //
@@ -664,6 +687,8 @@ Int_t DataProcess::processRoot()
                 if (m_bToT)     fprintf(m_filesCsv.back(), "%u\t",  m_ToT);
                 if (m_bTrigToA) fprintf(m_filesCsv.back(), "%llu\t",  m_ToA - m_trigTime);
                 fprintf(m_filesCsv.back(), "\n");
+
+                m_histTriggerToA->Fill(m_ToA - m_trigTime);
                 lineCounter++;
             }
         }
@@ -677,106 +702,6 @@ Int_t DataProcess::processRoot()
     finishMsg(lineCounter, m_filesCsv.size());
     closeCsv();
     return 0;
-
-//    //
-//    // THIS IS DONE WHEN timetree IS EMPTY, WHICH IS WHEN TRIGGER IS NOT AVAILABLE DURING DATA TAKING
-//    if (m_nTime == 0 || m_noTrigWindow)
-//    {
-//        //
-//        // disable any trigger printing
-//        m_bTrig = m_bTrigToA = kFALSE;
-
-//        //
-//        // loop entries in rawtree
-//        for (UInt_t entry = 0; entry < m_nRaw; entry++)
-//        {
-//            m_rawTree->GetEntry(entry);
-//            if (entry % 10000 == 0) cout << entry << " of " << m_nRaw << " done!" << endl;
-
-//            //
-//            // single file creation
-//            if (m_singleFile && m_filesCsv.size() == 0)
-//            {
-//                if (! openCsv()) return -1;
-//            }
-
-//            //
-//            // multiple file creation
-//            if (lineCounter % m_linesPerFile == 0 && !m_singleFile)
-//            {
-//                if (! openCsv(TString::Format("%d", lineCounter / m_linesPerFile))) return -1;
-//            }
-
-//            //
-//            // write actual data
-//            if (m_bTrig)    fprintf(m_filesCsv.back(), "%u\t",  m_trigCnt);
-//            if (m_bCol)     fprintf(m_filesCsv.back(), "%u\t",  m_col);
-//            if (m_bRow)     fprintf(m_filesCsv.back(), "%u\t",  m_row);
-//            if (m_bToA)     fprintf(m_filesCsv.back(), "%llu\t",m_ToA);
-//            if (m_bToT)     fprintf(m_filesCsv.back(), "%u\t",  m_ToT);
-////            if (m_bTrigToA) fprintf(m_filesCsv.back(), "%d\t",  m_ToA - m_trigTime);
-//            fprintf(m_filesCsv.back(), "\n");
-//            lineCounter++;
-//        }
-
-//        finishMsg(lineCounter, m_filesCsv.size());
-//        closeCsv();
-//        return 0;
-//    }
-
-//    for (UInt_t i = 0; i < m_nTime; i++)
-//    {
-//        m_timeTree->GetEntry(i);
-//        if (i % 50 == 0) cout << i << " out of " << Ntime << " done!" << endl;
-
-//        //
-//        // loop entries in rawTree
-//        for (UInt_t entry = currChunk; entry < m_nRaw; entry++)
-//        {
-//            m_rawTree->GetEntry(entry);
-
-//            //
-//            // dump all useless data
-//            if (m_ToA < m_trigTime)
-//            {
-//                currChunk = entry;
-//                continue;
-//            }
-
-//            if (m_ToA > (m_trigTime + m_windowCut))
-//            {
-//                currChunk = entry;
-//                break;
-//            }
-//            else
-//            {
-//                //
-//                // single file creation
-//                if (m_singleFile && m_filesCsv.size() == 0)
-//                {
-//                    if (! openCsv()) return -1;
-//                }
-
-//                //
-//                // multiple file creation
-//                if (lineCounter % m_linesPerFile == 0 && !m_singleFile)
-//                {
-//                    if (! openCsv(TString::Format("%d", lineCounter / m_linesPerFile))) return -1;
-//                }
-
-//                //
-//                // write actual data
-//                if (m_bTrig)    fprintf(m_filesCsv.back(), "%u\t",  m_trigCnt);
-//                if (m_bCol)     fprintf(m_filesCsv.back(), "%u\t",  m_col);
-//                if (m_bRow)     fprintf(m_filesCsv.back(), "%u\t",  m_row);
-//                if (m_bToA)     fprintf(m_filesCsv.back(), "%llu\t",m_ToA);
-//                if (m_bToT)     fprintf(m_filesCsv.back(), "%u\t",  m_ToT);
-//                if (m_bTrigToA) fprintf(m_filesCsv.back(), "%d\t",  m_ToA - m_trigTime);
-//                fprintf(m_filesCsv.back(), "\n");
-//                lineCounter++;
-//            }
-//        }
-//    }
 }
 
 void DataProcess::finishMsg(UInt_t events, Int_t fileCounter)

@@ -11,8 +11,11 @@
 #include <TApplication.h>
 #include "TGTextEntry.h"
 
+#include "dataprocess.h"
+
 const char * fileTypes[] = {
-	"ROOT files", "*.root",
+        "data files", "*.dat",
+        "ROOT files", "*.root",
 	0, 0
 };
 
@@ -36,7 +39,7 @@ class TextMargin : public TGHorizontalFrame {
 		else label->Disable();
 	}
 
-	ClassDef(TextMargin, 0)
+        ClassDef(TextMargin, 0);
 };
 
 class DRGui : public TGMainFrame {
@@ -51,7 +54,10 @@ class DRGui : public TGMainFrame {
 	bool bRow;
 	bool bToA;
 	bool bToT;
-	bool bGTF;
+        bool bTrig;
+        bool bTrigToA;
+
+        ProcType ptProcess;
 
 	bool bSingleFile;
 	bool bNoTrigWindow;
@@ -70,13 +76,17 @@ class DRGui : public TGMainFrame {
 	void SelectRow(Bool_t);
 	void SelectToA(Bool_t);
 	void SelectToT(Bool_t);
-	void SelectGTF(Bool_t);
+        void SelectTrig(Bool_t);
+        void SelectTrigToA(Bool_t);
+        void SelectData(Bool_t);
+        void SelectRoot(Bool_t);
+        void SelectAll(Bool_t);
 	void SelectSingleFile(Bool_t);
 	void SelectNoTrigWindow(Bool_t);
 
 	void Browse();
 
-	ClassDef(DRGui, 0)
+        ClassDef(DRGui, 0);
 };
 
 DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
@@ -87,9 +97,12 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	bRow = true;
 	bToA = true;
 	bToT = true;
-	bGTF = true;
+        bTrig = true;
+        bTrigToA = true;
 	bNoTrigWindow = false;
 	bSingleFile = false;
+
+        ptProcess = procAll;
 
 	linesPerFile = 100000;
 	nHitsCut = 1;
@@ -99,7 +112,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	TGVerticalFrame * controls = new TGVerticalFrame(this);
 	AddFrame(controls, new TGLayoutHints(kLHintsRight | kLHintsExpandY, 5, 5, 5, 5));
 
-//	VARIABLE ON LEFT
+//	VARIABLE and PROCESSES ON LEFT
 	TGVerticalFrame * variables = new TGVerticalFrame(this);
 	AddFrame(variables, new TGLayoutHints(kLHintsLeft | kLHintsExpandY, 5, 5, 5, 5));
 
@@ -135,31 +148,57 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 //	VARIABLES
 	TGGroupFrame * varsGroup = new TGGroupFrame(variables, "Variables");
 	varsGroup->SetTitlePos(TGGroupFrame::kCenter);
-	TGCheckButton * col = new TGCheckButton(varsGroup, "Col");
-	TGCheckButton * row = new TGCheckButton(varsGroup, "Row");
-	TGCheckButton * toa = new TGCheckButton(varsGroup, "ToA");
-	TGCheckButton * tot = new TGCheckButton(varsGroup, "ToT");
-	TGCheckButton * gtf = new TGCheckButton(varsGroup, "GlobalTimeFine");
+        TGCheckButton * col     = new TGCheckButton(varsGroup, "Col");
+        TGCheckButton * row     = new TGCheckButton(varsGroup, "Row");
+        TGCheckButton * toa     = new TGCheckButton(varsGroup, "ToA");
+        TGCheckButton * tot     = new TGCheckButton(varsGroup, "ToT");
+        TGCheckButton * trig    = new TGCheckButton(varsGroup, "Trigger");
+        TGCheckButton * trigtoa = new TGCheckButton(varsGroup, "Trigger-ToA");
 
 	col->SetOn();
 	row->SetOn();
 	toa->SetOn();
 	tot->SetOn();
-	gtf->SetOn();
+        trig->SetOn();
+        trigtoa->SetOn();
 
-	varsGroup->AddFrame(col, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
-	varsGroup->AddFrame(row, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
-	varsGroup->AddFrame(toa, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
-	varsGroup->AddFrame(tot, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
-	varsGroup->AddFrame(gtf, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        varsGroup->AddFrame(col,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        varsGroup->AddFrame(row,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        varsGroup->AddFrame(toa,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        varsGroup->AddFrame(tot,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        varsGroup->AddFrame(trig,   new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        varsGroup->AddFrame(trigtoa,new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 
-	col->Connect("Toggled(Bool_t)", "DRGui", this, "SelectCol(Bool_t)");
-	row->Connect("Toggled(Bool_t)", "DRGui", this, "SelectRow(Bool_t)");
-	toa->Connect("Toggled(Bool_t)", "DRGui", this, "SelectToA(Bool_t)");
-	tot->Connect("Toggled(Bool_t)", "DRGui", this, "SelectToT(Bool_t)");
-	gtf->Connect("Toggled(Bool_t)", "DRGui", this, "SelectGTF(Bool_t)");
+        col     ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectCol(Bool_t)");
+        row     ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectRow(Bool_t)");
+        toa     ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectToA(Bool_t)");
+        tot     ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectToT(Bool_t)");
+        trig    ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectTrig(Bool_t)");
+        trigtoa ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectTrigToA(Bool_t)");
 
 	variables->AddFrame(varsGroup, new TGLayoutHints(kLHintsExpandX));
+
+//      PROCESSES
+        TGVButtonGroup * procGroup = new TGVButtonGroup(variables, "Process");
+        procGroup->SetTitlePos(TGGroupFrame::kCenter);
+        TGRadioButton * all     = new TGRadioButton(procGroup, "all");
+        TGRadioButton * data    = new TGRadioButton(procGroup, "data");
+        TGRadioButton * root    = new TGRadioButton(procGroup, "root");
+
+        all->SetOn();
+        data->SetOn(kFALSE);
+        root->SetOn(kFALSE);
+
+        procGroup->AddFrame(all,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        procGroup->AddFrame(data,   new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        procGroup->AddFrame(root,   new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+
+        all     ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectAll(Bool_t)");
+        data    ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectData(Bool_t)");
+        root    ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectRoot(Bool_t)");
+
+        procGroup->SetRadioButtonExclusive(kTRUE);
+        variables->AddFrame(procGroup, new TGLayoutHints(kLHintsExpandX));
 
 //	CUTS
 	TGGroupFrame * cuts = new TGGroupFrame(controls, "Cuts");
@@ -214,36 +253,30 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	MapRaised();
 }
 
-void DRGui::RunReducer() {
-	int err = 0;
-	char cmd[500];
-	sprintf(cmd,".x dataReader.C(\"%s\", %d, %d, %d, %d, %d, %d, %d, %d, %d, %d)",
-		       	rootFile->GetText(),
-			bCol,
-			bRow,
-			bToA,
-			bToT,
-			bGTF,
-			nHitsCut,
-			bNoTrigWindow,
-			timeWindow,
-			bSingleFile,
-			linesPerFile
-			);
-
-	cout << cmd << endl;
-	gROOT->ProcessLine(cmd, &err);
+void DRGui::RunReducer()
+{
+        DataProcess* processor = new DataProcess(rootFile->GetText());
+//        processor->setName(rootFile->GetText());
+        processor->setProcess(ptProcess);
+        processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigToA, bNoTrigWindow, timeWindow, bSingleFile, linesPerFile);
+        processor->process();
 }
 
 void DRGui::ApplyCutsHits(char * val) { nHitsCut = atoi(val); }
 void DRGui::ApplyCutsTime(char * val) { timeWindow = atoi(val); }
 void DRGui::ApplyCutsLines(char * val) { linesPerFile = atoi(val); }
 
-void DRGui::SelectCol(Bool_t check) { bCol = check; }
-void DRGui::SelectRow(Bool_t check) { bRow = check; }
-void DRGui::SelectToA(Bool_t check) { bToA = check; }
-void DRGui::SelectToT(Bool_t check) { bToT = check; }
-void DRGui::SelectGTF(Bool_t check) { bGTF = check; }
+void DRGui::SelectCol(Bool_t check)     { bCol = check; }
+void DRGui::SelectRow(Bool_t check)     { bRow = check; }
+void DRGui::SelectToA(Bool_t check)     { bToA = check; }
+void DRGui::SelectToT(Bool_t check)     { bToT = check; }
+void DRGui::SelectTrig(Bool_t check)    { bTrig = check; }
+void DRGui::SelectTrigToA(Bool_t check) { bTrigToA = check; }
+
+void DRGui::SelectAll(Bool_t check)     { if (check) ptProcess = procAll; }
+void DRGui::SelectData(Bool_t check)    { if (check) ptProcess = procDat; }
+void DRGui::SelectRoot(Bool_t check)    { if (check) ptProcess = procRoot; }
+
 void DRGui::SelectSingleFile(Bool_t check) { bSingleFile = check; }
 void DRGui::SelectNoTrigWindow(Bool_t check) { bNoTrigWindow = check; }
 
