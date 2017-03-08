@@ -9,10 +9,15 @@
 
 using namespace std;
 
-Int_t DataProcess::DataProcess(TString fileNameInput, ProcType process = procDat, UInt_t nEntries = 1000000000):
+DataProcess::DataProcess(TString fileNameInput, ProcType process, UInt_t nEntries):
     m_fileNameInput(fileNameInput),
     m_process(process),
     m_maxEntries(nEntries)
+{
+    ;
+}
+
+Int_t DataProcess::process()
 {
     m_time.Start();
 
@@ -70,17 +75,17 @@ Int_t DataProcess::DataProcess(TString fileNameInput, ProcType process = procDat
     return 0;
 }
 
-Int_t DataProcess::readOptions(Bool_t bCol = kTRUE,
-                               Bool_t bRow = kTRUE,
-                               Bool_t bToT = kTRUE,
-                               Bool_t bToA = kTRUE,
-                               Bool_t bTrig = kTRUE,
-                               Bool_t bTrigToA = kTRUE,
-                               Int_t  nHitsCut = 0,
-                               Bool_t noTrigWindow = kFALSE,
-                               Int_t  windowCut = 40,
-                               Bool_t singleFile = kFALSE,
-                               Int_t  linesPerFile = 100000)
+Int_t DataProcess::readOptions(Bool_t bCol,
+                               Bool_t bRow,
+                               Bool_t bToT,
+                               Bool_t bToA,
+                               Bool_t bTrig,
+                               Bool_t bTrigToA,
+                               Int_t nHitsCut,
+                               Bool_t noTrigWindow,
+                               Int_t windowCut,
+                               Bool_t singleFile,
+                               Int_t linesPerFile)
 {
     m_bCol          = bCol;
     m_bRow          = bRow;
@@ -143,7 +148,7 @@ void DataProcess::plotStandardData()
 //        m_histTrigger->Draw();
 //    }
 
-    canvas->Print(saveFileName);
+    canvas->Print(m_fileNamePdf);
     canvas->Close();
 }
 
@@ -174,13 +179,13 @@ Int_t DataProcess::openDat()
     return 0;
 }
 
-Int_t DataProcess::openCsv(TString fileCounter = "")
+Int_t DataProcess::openCsv(TString fileCounter)
 {
     TString fileNameTmp = m_fileNameInput;
     UInt_t dotPos = fileNameTmp.Last('.');
     if (fileCounter.Sizeof() != 0)
     {
-        fileNameTmp.Replace(dotPos, 200, "[" + fileCounter + "].csv")
+        fileNameTmp.Replace(dotPos, 200, "[" + fileCounter + "].csv");
     }
 
     FILE* fileCsv = fopen(fileNameTmp, "w");
@@ -194,7 +199,7 @@ Int_t DataProcess::openCsv(TString fileCounter = "")
         return -1;
     }
 
-    m_filesCsv.push_back() = fileCsv;
+    m_filesCsv.push_back(fileCsv);
 
     if (m_bTrig)    fprintf(m_filesCsv.back(), "#TrigId\t");
     if (m_bTrig)    fprintf(m_filesCsv.back(), "#TrigTime\t");
@@ -239,9 +244,6 @@ Int_t DataProcess::openRoot()
         m_timeTree->Branch("TrigCntr", &m_trigCnt, "TrigCntr/i");
         m_timeTree->Branch("TrigTime", &m_trigTime,"TrigTimeGlobal/l");
 
-        m_longTimeTree = new TTree("m_longTimeTree", "tpx3 telescope, May 2015");
-        m_longTimeTree->Branch("LongTime", &longtime, "LongTime/l");
-
         //
         // create plots
         m_pixelMap      = new TH2I("pixelMap", "Col:Row", 256, -0.5, 255.5, 256, -0.5, 255.5);
@@ -272,10 +274,10 @@ Int_t DataProcess::openRoot()
         //
         // read trees
         m_rawTree = (TTree * ) m_fileRoot->Get("rawtree");
-        m_rawTree->SetBranchAddress("Col", m_col);
-        m_rawTree->SetBranchAddress("Row", m_row);
-        m_rawTree->SetBranchAddress("ToT", m_ToT);
-        m_rawTree->SetBranchAddress("ToA", m_ToA);
+        m_rawTree->SetBranchAddress("Col", &m_col);
+        m_rawTree->SetBranchAddress("Row", &m_row);
+        m_rawTree->SetBranchAddress("ToT", &m_ToT);
+        m_rawTree->SetBranchAddress("ToA", &m_ToA);
 
         m_timeTree = (TTree * ) m_fileRoot->Get("timetree");
         m_timeTree->SetBranchAddress("TrigCntr", &m_trigCnt);
@@ -308,8 +310,8 @@ void DataProcess::closeCsv()
 {
     for (UInt_t size = 0; size < m_filesCsv.size(); size++)
     {
-        fclose(m_filesCsv->front());
-        m_filesCsv->pop_front();
+        fclose(m_filesCsv.front());
+        m_filesCsv.pop_front();
     }
 }
 
@@ -372,15 +374,15 @@ Int_t DataProcess::processDat()
     // skip main header
     UInt_t sphdr_id;
     UInt_t sphdr_size;
-    retVal = fread( &sphdr_id, sizeof(UInt_t), 1, m_fileNameDat);
-    retVal = fread( &sphdr_size, sizeof(UInt_t), 1, m_fileNameDat);
+    retVal = fread( &sphdr_id, sizeof(UInt_t), 1, m_fileDat);
+    retVal = fread( &sphdr_size, sizeof(UInt_t), 1, m_fileDat);
     cout << hex << sphdr_id << dec << endl;
     cout << "header size " << sphdr_size << endl;
     if (sphdr_size > 66304) sphdr_size = 66304;
     UInt_t *fullheader = new UInt_t[sphdr_size/sizeof(UInt_t)];
     if (fullheader == 0) { cout << "failed to allocate memory for header " << endl; return -1; }
 
-    retVal = fread ( fullheader+2, sizeof(UInt_t), sphdr_size/sizeof(UInt_t) -2, m_fileNameDat);
+    retVal = fread ( fullheader+2, sizeof(UInt_t), sphdr_size/sizeof(UInt_t) -2, m_fileDat);
     fullheader[0] = sphdr_id;
     fullheader[1] = sphdr_size;
     // todo read in header via structure
@@ -396,11 +398,11 @@ Int_t DataProcess::processDat()
     //
     // Main loop over all entries
     // nentries is either 1000000000 or user defined
-    while (!feof(m_fileNameDat) && pcnt < m_maxEntries)
+    while (!feof(m_fileDat) && pcnt < m_maxEntries)
     {
         //
         // read entries, write out each 10^5
-        retVal = fread( &pixdata, sizeof(ULong64_t), 1, m_fileNameDat);
+        retVal = fread( &pixdata, sizeof(ULong64_t), 1, m_fileDat);
         if (pcnt % 100000 == 0) cout << "Count " << pcnt << endl;
 
         //
@@ -457,8 +459,8 @@ Int_t DataProcess::processDat()
                 // subtract fast ToA (FToA count until the first clock edge, so less counts means later arrival of the hit)
                 ToAs.push_back((globaltime << 12) - (FToA << 8));
                 // now correct for the column to column phase shift (todo: check header for number of clock phases)
-                ToAs.back() += ( ( (Col/2) %16 ) << 8 );
-                if (((Col/2)%16) == 0) ToAs.back() += ( 16 << 8 );
+                ToAs.back() += ( ( (col/2) %16 ) << 8 );
+                if (((col/2)%16) == 0) ToAs.back() += ( 16 << 8 );
             }
 
             //
@@ -523,7 +525,6 @@ Int_t DataProcess::processDat()
                         longtime = (longtime_msb - 0x10000000) | longtime_lsb;
                     }
                     else longtime = tmplongtime;
-                    m_longTimeTree->Fill();
                 }
             }
         }
@@ -613,13 +614,14 @@ Int_t DataProcess::processRoot()
     while (entryTime < m_nTime || m_nTime == 0)
     {
         if (m_nTime != 0) m_timeTree->GetEntry(entryTime);
-        if (i % 50 == 0) cout << entryTime << " out of " << m_nTime << " done!" << endl;
+        if (entryTime % 50 == 0) cout << entryTime << " out of " << m_nTime << " done!" << endl;
 
         //
         // loop entries in rawTree
         for (UInt_t entryRaw = currChunk; entryRaw < m_nRaw; entryRaw++)
         {
             m_rawTree->GetEntry(entryRaw);
+            if (entryRaw % 10000 == 0 && m_nTime == 0) cout << entryRaw << " of " << m_nRaw << " done!" << endl;
 
             //
             // dump all useless data
@@ -660,7 +662,7 @@ Int_t DataProcess::processRoot()
                 if (m_bRow)     fprintf(m_filesCsv.back(), "%u\t",  m_row);
                 if (m_bToA)     fprintf(m_filesCsv.back(), "%llu\t",m_ToA);
                 if (m_bToT)     fprintf(m_filesCsv.back(), "%u\t",  m_ToT);
-                if (m_bTrigToA) fprintf(m_filesCsv.back(), "%d\t",  m_ToA - m_trigTime);
+                if (m_bTrigToA) fprintf(m_filesCsv.back(), "%llu\t",  m_ToA - m_trigTime);
                 fprintf(m_filesCsv.back(), "\n");
                 lineCounter++;
             }
@@ -777,7 +779,7 @@ Int_t DataProcess::processRoot()
 //    }
 }
 
-void DataProcess::finishMsg(UInt_t events, Int_t fileCounter = 1)
+void DataProcess::finishMsg(UInt_t events, Int_t fileCounter)
 {
         cout << "==============================================="  << endl;
         cout << "============  JOB IS DONE !!!  ================"  << endl;

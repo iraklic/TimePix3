@@ -24,19 +24,31 @@ enum ProcType
 class DataProcess
 {
 public:
-    Int_t DataProcess(ProcType process, UInt_t nEntries);
-    Int_t readOptions(Bool_t bCol, Bool_t bRow, Bool_t bToT, Bool_t bToA, Bool_t bTrig, Bool_t bTrigToA, Int_t nHitsCut, Bool_t noTrigWindow, Int_t windowCut, Bool_t singleFile, Int_t linesPerFile);
-    Int_t processDat();
-    Int_t processRoot();
-    void plotStandardData();
+    DataProcess(TString fileNameInput, ProcType process = procAll, UInt_t nEntries = 1000000000);
+    Int_t readOptions(Bool_t bCol = kTRUE,
+                      Bool_t bRow = kTRUE,
+                      Bool_t bToT = kTRUE,
+                      Bool_t bToA = kTRUE,
+                      Bool_t bTrig = kTRUE,
+                      Bool_t bTrigToA = kTRUE,
+                      Int_t  nHitsCut = 0,
+                      Bool_t noTrigWindow = kFALSE,
+                      Int_t  windowCut = 40,
+                      Bool_t singleFile = kFALSE,
+                      Int_t  linesPerFile = 100000);
+    Int_t process();
 
 private:
     void processFileNames();
-    void finishMsg(UInt_t events, Int_t fileCounter);
+    void finishMsg(UInt_t events, Int_t fileCounter = 1);
 
     Int_t openDat();
-    Int_t openCsv(TString fileCounter);
+    Int_t openCsv(TString fileCounter = "");
     Int_t openRoot();
+
+    Int_t processDat();
+    Int_t processRoot();
+    void plotStandardData();
 
     void closeDat();
     void closeCsv();
@@ -83,7 +95,6 @@ private:
     // ROOT trees
     TTree* m_rawTree;
     TTree* m_timeTree;
-    TTree* m_longTimeTree;
 
     UInt_t m_nRaw;
     UInt_t m_nTime;
