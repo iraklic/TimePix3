@@ -1,12 +1,18 @@
 #ifndef DATAPROCESS_H
 #define DATAPROCESS_H
 
+#include <deque>
+
 #include "TString.h"
 #include "TStopwatch.h"
 
 #include "TTree.h"
 #include "TH1.h"
 #include "TH2.h"
+
+#define MAXHITS 65536       // minimal value for sorting
+
+using namespace std;
 
 enum ProcType
 {
@@ -26,34 +32,38 @@ public:
 
 private:
     void processFileNames();
+    void finishMsg(UInt_t events, Int_t fileCounter);
 
     Int_t openDat();
+    Int_t openCsv(TString fileCounter);
     Int_t openRoot();
 
     void closeDat();
+    void closeCsv();
     void closeRoot();
 
 private:
     //
     // global variables
-    Bool_t m_bCol = kTRUE;
-    Bool_t m_bRow = kTRUE;
-    Bool_t m_bToT = kTRUE;
-    Bool_t m_bToA = kTRUE;
-    Bool_t m_bTrig = kTRUE;
-    Bool_t m_bTrigToA = kTRUE;
-
-    Bool_t m_noTrigWindow = kFALSE;
-    Bool_t m_singleFile = kFALSE;
-
-    Int_t m_nHitsCut = 0;
-    Int_t m_windowCut = 40;
-    Int_t m_linesPerFile = 100000;
-
     ProcType    m_process;
     UInt_t      m_maxEntries;
     TStopwatch  m_time;
 
+    //
+    // options of GUI
+    Bool_t m_bCol;
+    Bool_t m_bRow;
+    Bool_t m_bToT;
+    Bool_t m_bToA;
+    Bool_t m_bTrig;
+    Bool_t m_bTrigToA;
+
+    Bool_t m_noTrigWindow;
+    Bool_t m_singleFile;
+
+    Int_t m_nHitsCut;
+    Int_t m_windowCut;
+    Int_t m_linesPerFile;
 
     //
     // file names
@@ -65,8 +75,9 @@ private:
 
     //
     // files
-    FILE*   m_fileDat;
-    TFile*  m_fileRoot;
+    FILE*           m_fileDat;
+    TFile*          m_fileRoot;
+    deque<FILE* >   m_filesCsv;
 
     //
     // ROOT trees
@@ -74,8 +85,8 @@ private:
     TTree* m_timeTree;
     TTree* m_longTimeTree;
 
-    const Int_t m_nRaw;
-    const Int_t m_nTime;
+    UInt_t m_nRaw;
+    UInt_t m_nTime;
 
     //
     // ROOT histograms

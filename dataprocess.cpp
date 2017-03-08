@@ -3,13 +3,9 @@
 #include <iostream>
 #include <stdio.h>
 #include <algorithm>
-#include <deque>
 
 #include "TFile.h"
 #include "TCanvas.h"
-
-
-#define MAXHITS 65536       // minimal value for sorting
 
 using namespace std;
 
@@ -33,23 +29,29 @@ Int_t DataProcess::DataProcess(TString fileNameInput, ProcType process = procDat
     {
         case procDat:
             if (! openDat()) return -1;
+            if (! openRoot()) return -1;
             processDat();
             closeDat();
+            closeRoot();
 
             break;
         case procRoot:
             if (! openRoot()) return -1;
+//            if (! openCsv()) return -1;
             processRoot();
             closeRoot();
+//            closeCsv();
 
             break;
         case procAll:
             if (! openDat()) return -1;
             if (! openRoot()) return -1;
+//            if (! openCsv()) return -1;
             processDat();
             processRoot();
             closeDat();
             closeRoot();
+//            closeCsv();
 
             break;
         default :
@@ -91,6 +93,15 @@ Int_t DataProcess::readOptions(Bool_t bCol = kTRUE,
     m_nHitsCut      = nHitsCut;
     m_windowCut     = windowCut;
     m_linesPerFile  = linesPerFile;
+
+    if (m_windowCut > 500)
+    {
+            cout << " ========================================== " << endl;
+            cout << " === " << windowCut << " ms is very large winwdow!!!" << endl;
+            cout << " ========================================== " << endl;
+            return -1;
+    }
+
     return 0;
 }
 
@@ -160,6 +171,40 @@ Int_t DataProcess::openDat()
         cout << " ========================================== " << endl;
         return -1;
     }
+    return 0;
+}
+
+Int_t DataProcess::openCsv(TString fileCounter = "")
+{
+    TString fileNameTmp = m_fileNameInput;
+    UInt_t dotPos = fileNameTmp.Last('.');
+    if (fileCounter.Sizeof() != 0)
+    {
+        fileNameTmp.Replace(dotPos, 200, "[" + fileCounter + "].csv")
+    }
+
+    FILE* fileCsv = fopen(fileNameTmp, "w");
+    cout << fileNameTmp << endl;
+
+    if (fileCsv == NULL)
+    {
+        cout << " ========================================== " << endl;
+        cout << " == COULD NOT OPEN CSV, PLEASE CHECK IT === " << endl;
+        cout << " ========================================== " << endl;
+        return -1;
+    }
+
+    m_filesCsv.push_back() = fileCsv;
+
+    if (m_bTrig)    fprintf(m_filesCsv.back(), "#TrigId\t");
+    if (m_bTrig)    fprintf(m_filesCsv.back(), "#TrigTime\t");
+    if (m_bCol)     fprintf(m_filesCsv.back(), "#Col\t");
+    if (m_bRow)     fprintf(m_filesCsv.back(), "#Row\t");
+    if (m_bToA)     fprintf(m_filesCsv.back(), "#ToA\t");
+    if (m_bToT)     fprintf(m_filesCsv.back(), "#ToT\t");
+    if (m_bTrigToA) fprintf(m_filesCsv.back(), "#Trig-ToA\t");
+    fprintf(m_filesCsv.back(), "\n");
+
     return 0;
 }
 
@@ -259,6 +304,15 @@ void DataProcess::closeDat()
     fclose(m_fileDat);
 }
 
+void DataProcess::closeCsv()
+{
+    for (UInt_t size = 0; size < m_filesCsv.size(); size++)
+    {
+        fclose(m_filesCsv->front());
+        m_filesCsv->pop_front();
+    }
+}
+
 void DataProcess::closeRoot()
 {
     plotStandardData();
@@ -301,10 +355,10 @@ Int_t DataProcess::processDat()
 
     //
     // deque used for sorting and writing data
-    std::deque<UInt_t>      Rows;
-    std::deque<UInt_t>      Cols;
-    std::deque<UInt_t>      ToTs;
-    std::deque<ULong64_t>   ToAs;
+    deque<UInt_t>      Rows;
+    deque<UInt_t>      Cols;
+    deque<UInt_t>      ToTs;
+    deque<ULong64_t>   ToAs;
 
     UInt_t sortSize = MAXHITS;
     UInt_t pcnt = 0;
@@ -546,6 +600,189 @@ Int_t DataProcess::processDat()
 
 Int_t DataProcess::processRoot()
 {
+    UInt_t lineCounter = 0;
+    UInt_t currChunk = 0;
+
     m_nRaw = m_rawTree->GetEntries();
     m_nTime = m_timeTree->GetEntries();
+    if (m_nTime == 0) m_bTrig = m_bTrigToA = kFALSE;
+
+    //
+    // loop entries in timeTree
+    UInt_t entryTime = 0;
+    while (entryTime < m_nTime || m_nTime == 0)
+    {
+        if (m_nTime != 0) m_timeTree->GetEntry(entryTime);
+        if (i % 50 == 0) cout << entryTime << " out of " << m_nTime << " done!" << endl;
+
+        //
+        // loop entries in rawTree
+        for (UInt_t entryRaw = currChunk; entryRaw < m_nRaw; entryRaw++)
+        {
+            m_rawTree->GetEntry(entryRaw);
+
+            //
+            // dump all useless data
+            if (m_nTime!= 0 && m_ToA < m_trigTime)
+            {
+                currChunk = entryRaw;
+                continue;
+            }
+
+            //
+            // stop rawTree loop if further away then trigger+window
+            if (m_nTime!= 0 && m_ToA > (m_trigTime + m_windowCut))
+            {
+                currChunk = entryRaw;
+                break;
+            }
+            else
+            {
+                //
+                // single file creation
+                if (m_singleFile && m_filesCsv.size() == 0)
+                {
+                    if (! openCsv()) return -1;
+                }
+
+                //
+                // multiple file creation
+                if (lineCounter % m_linesPerFile == 0 && !m_singleFile)
+                {
+                    if (! openCsv(TString::Format("%d", lineCounter / m_linesPerFile))) return -1;
+                }
+
+                //
+                // write actual data
+                if (m_bTrig)    fprintf(m_filesCsv.back(), "%u\t",  m_trigCnt);
+                if (m_bTrig)    fprintf(m_filesCsv.back(), "%llu\t",m_trigTime);
+                if (m_bCol)     fprintf(m_filesCsv.back(), "%u\t",  m_col);
+                if (m_bRow)     fprintf(m_filesCsv.back(), "%u\t",  m_row);
+                if (m_bToA)     fprintf(m_filesCsv.back(), "%llu\t",m_ToA);
+                if (m_bToT)     fprintf(m_filesCsv.back(), "%u\t",  m_ToT);
+                if (m_bTrigToA) fprintf(m_filesCsv.back(), "%d\t",  m_ToA - m_trigTime);
+                fprintf(m_filesCsv.back(), "\n");
+                lineCounter++;
+            }
+        }
+
+        //
+        // stop cycle by incrementing nTime if no trigger entries found
+        if (m_nTime == 0) m_nTime++;
+        entryTime++;
+    }
+
+    finishMsg(lineCounter, m_filesCsv.size());
+    closeCsv();
+    return 0;
+
+//    //
+//    // THIS IS DONE WHEN timetree IS EMPTY, WHICH IS WHEN TRIGGER IS NOT AVAILABLE DURING DATA TAKING
+//    if (m_nTime == 0 || m_noTrigWindow)
+//    {
+//        //
+//        // disable any trigger printing
+//        m_bTrig = m_bTrigToA = kFALSE;
+
+//        //
+//        // loop entries in rawtree
+//        for (UInt_t entry = 0; entry < m_nRaw; entry++)
+//        {
+//            m_rawTree->GetEntry(entry);
+//            if (entry % 10000 == 0) cout << entry << " of " << m_nRaw << " done!" << endl;
+
+//            //
+//            // single file creation
+//            if (m_singleFile && m_filesCsv.size() == 0)
+//            {
+//                if (! openCsv()) return -1;
+//            }
+
+//            //
+//            // multiple file creation
+//            if (lineCounter % m_linesPerFile == 0 && !m_singleFile)
+//            {
+//                if (! openCsv(TString::Format("%d", lineCounter / m_linesPerFile))) return -1;
+//            }
+
+//            //
+//            // write actual data
+//            if (m_bTrig)    fprintf(m_filesCsv.back(), "%u\t",  m_trigCnt);
+//            if (m_bCol)     fprintf(m_filesCsv.back(), "%u\t",  m_col);
+//            if (m_bRow)     fprintf(m_filesCsv.back(), "%u\t",  m_row);
+//            if (m_bToA)     fprintf(m_filesCsv.back(), "%llu\t",m_ToA);
+//            if (m_bToT)     fprintf(m_filesCsv.back(), "%u\t",  m_ToT);
+////            if (m_bTrigToA) fprintf(m_filesCsv.back(), "%d\t",  m_ToA - m_trigTime);
+//            fprintf(m_filesCsv.back(), "\n");
+//            lineCounter++;
+//        }
+
+//        finishMsg(lineCounter, m_filesCsv.size());
+//        closeCsv();
+//        return 0;
+//    }
+
+//    for (UInt_t i = 0; i < m_nTime; i++)
+//    {
+//        m_timeTree->GetEntry(i);
+//        if (i % 50 == 0) cout << i << " out of " << Ntime << " done!" << endl;
+
+//        //
+//        // loop entries in rawTree
+//        for (UInt_t entry = currChunk; entry < m_nRaw; entry++)
+//        {
+//            m_rawTree->GetEntry(entry);
+
+//            //
+//            // dump all useless data
+//            if (m_ToA < m_trigTime)
+//            {
+//                currChunk = entry;
+//                continue;
+//            }
+
+//            if (m_ToA > (m_trigTime + m_windowCut))
+//            {
+//                currChunk = entry;
+//                break;
+//            }
+//            else
+//            {
+//                //
+//                // single file creation
+//                if (m_singleFile && m_filesCsv.size() == 0)
+//                {
+//                    if (! openCsv()) return -1;
+//                }
+
+//                //
+//                // multiple file creation
+//                if (lineCounter % m_linesPerFile == 0 && !m_singleFile)
+//                {
+//                    if (! openCsv(TString::Format("%d", lineCounter / m_linesPerFile))) return -1;
+//                }
+
+//                //
+//                // write actual data
+//                if (m_bTrig)    fprintf(m_filesCsv.back(), "%u\t",  m_trigCnt);
+//                if (m_bCol)     fprintf(m_filesCsv.back(), "%u\t",  m_col);
+//                if (m_bRow)     fprintf(m_filesCsv.back(), "%u\t",  m_row);
+//                if (m_bToA)     fprintf(m_filesCsv.back(), "%llu\t",m_ToA);
+//                if (m_bToT)     fprintf(m_filesCsv.back(), "%u\t",  m_ToT);
+//                if (m_bTrigToA) fprintf(m_filesCsv.back(), "%d\t",  m_ToA - m_trigTime);
+//                fprintf(m_filesCsv.back(), "\n");
+//                lineCounter++;
+//            }
+//        }
+//    }
+}
+
+void DataProcess::finishMsg(UInt_t events, Int_t fileCounter = 1)
+{
+        cout << "==============================================="  << endl;
+        cout << "============  JOB IS DONE !!!  ================"  << endl;
+        cout << "==============================================="  << endl;
+        cout << "====  " << events << " events from total of " << m_nRaw << " selected!"  << endl;
+        cout << "====  " << fileCounter << " FILE(S) WRITTEN OUT!!!"  << endl;
+        cout << "==============================================="  << endl;
 }
