@@ -41,7 +41,7 @@ public:
     Int_t process();
 
 private:
-    void processFileNames();
+    Int_t processFileNames();
     void finishMsg(TString operation, UInt_t events, Int_t fileCounter = 1);
     ULong64_t roundToNs(ULong64_t number);
 

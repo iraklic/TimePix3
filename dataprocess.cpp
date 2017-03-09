@@ -19,6 +19,7 @@ DataProcess::DataProcess(TString fileNameInput)
 void DataProcess::setName(TString fileNameInput)
 {
     m_fileNameInput = fileNameInput;
+    cout << "file name input " << m_fileNameInput << endl;
 }
 
 void DataProcess::setProcess(ProcType process)
@@ -53,7 +54,7 @@ Int_t DataProcess::setOptions(Bool_t bCol,
     m_timeWindow    = timeWindow;
     m_linesPerFile  = linesPerFile;
 
-    if (m_timeWindow > 500)
+    if (m_timeWindow/1000000000 > 500)
     {
             cout << " ========================================== " << endl;
             cout << " === " << timeWindow << " ms is very large winwdow!!!" << endl;
@@ -70,7 +71,7 @@ Int_t DataProcess::process()
 
     //
     // create filenames
-    processFileNames();
+    if ( processFileNames() != 0) return -1;
 
     //
     // switch to decide what to do with the input
@@ -168,16 +169,21 @@ void DataProcess::plotStandardData()
         canvas->cd(7);
         m_histTrigger->Draw();
 
-        canvas->cd(8);
-        m_histTriggerToA->Draw();
+        if ( m_bTrigToA )
+        {
+            canvas->cd(8);
+            m_histTriggerToA->Draw();
+        }
     }
 
     canvas->Print(m_fileNamePdf);
     canvas->Close();
 }
 
-void DataProcess::processFileNames()
+Int_t DataProcess::processFileNames()
 {
+    if (m_fileNameInput.Sizeof()==1) return -1;
+
     UInt_t slash = m_fileNameInput.Last('/');
     m_fileNamePath = m_fileNameInput(0,slash+1);
     m_fileNameInput.Remove(0,slash+1);
@@ -187,6 +193,8 @@ void DataProcess::processFileNames()
     m_fileNameRoot  = m_fileNameInput.Replace(dotPos, 200, ".root");
     m_fileNamePdf   = m_fileNameInput.Replace(dotPos, 200, ".pdf");
     m_fileNameCsv   = m_fileNameInput.Replace(dotPos, 200, ".csv");
+
+    return 0;
 }
 
 Int_t DataProcess::openDat()
@@ -208,7 +216,8 @@ Int_t DataProcess::openCsv(TString fileCounter)
 {
     TString fileNameTmp = m_fileNameInput;
     UInt_t dotPos = fileNameTmp.Last('.');
-    if (fileCounter.Sizeof() != 0)
+
+    if (fileCounter.Sizeof() != 1)
     {
         fileNameTmp.Replace(dotPos, 200, "[" + fileCounter + "].csv");
     }
@@ -344,7 +353,11 @@ void DataProcess::closeCsv()
 
 void DataProcess::closeRoot()
 {
-    plotStandardData();
+    m_nRaw = m_rawTree->GetEntries();
+    m_nTime = m_timeTree->GetEntries();
+
+    if (m_nRaw != 0 || m_nTime != 0)
+        plotStandardData();
 
     m_fileRoot->cd();
     m_fileRoot->Write();
@@ -489,7 +502,7 @@ Int_t DataProcess::processDat()
                 // now correct for the column to column phase shift (todo: check header for number of clock phases)
                 ToAs.back() += ( ( (col/2) %16 ) << 8 );
                 if (((col/2)%16) == 0) ToAs.back() += ( 16 << 8 );
-                ToAs.back() = roundToNs(ToAs.back()); // save in ms
+                ToAs.back() = roundToNs(ToAs.back()); // save in ns
             }
 
             //
@@ -527,7 +540,7 @@ Int_t DataProcess::processDat()
                             else cout << "small backward time jump in trigger packet " << m_trigCnt << " (jump of " << prev_trigtime_coarse-trigtime_coarse << ")" << endl;
                         }
                         trigCntr++;
-                        m_trigTime = roundToNs(((trigtime_global_ext + (ULong64_t) trigtime_coarse) << 12) | (ULong64_t) trigtime_fine); // save in ms
+                        m_trigTime = roundToNs(((trigtime_global_ext + (ULong64_t) trigtime_coarse) << 12) | (ULong64_t) trigtime_fine); // save in ns
 
                         //
                         // fill timeTree and trigger histogram
@@ -635,6 +648,8 @@ Int_t DataProcess::processRoot()
 {
     m_lineCounter = 0;
     UInt_t currChunk = 0;
+    UInt_t entryTime = 0;
+    ULong64_t tmpTrigTime = 0;
 
     m_nRaw = m_rawTree->GetEntries();
     m_nTime = m_timeTree->GetEntries();
@@ -642,10 +657,25 @@ Int_t DataProcess::processRoot()
 
     //
     // loop entries in timeTree
-    UInt_t entryTime = 0;
     while (entryTime < m_nTime || m_nTime == 0)
     {
-        if (m_nTime != 0) m_timeTree->GetEntry(entryTime);
+        if (m_nTime != 0)
+        {
+            if (m_bNoTrigWindow && (entryTime + 1) < m_nTime)
+            {
+                m_timeTree->GetEntry(entryTime + 1);
+                tmpTrigTime = m_trigTime;
+                m_timeTree->GetEntry(entryTime);
+                m_timeWindow = (Int_t) (tmpTrigTime - m_trigTime);
+            }
+            else
+            {
+                m_timeTree->GetEntry(entryTime);
+            }
+            cout << "========================" << endl;
+            cout << "trig window is " << m_timeWindow << endl;
+        }
+
         if (entryTime % 50 == 0) cout << entryTime << " out of " << m_nTime << " done!" << endl;
 
         //
@@ -657,7 +687,7 @@ Int_t DataProcess::processRoot()
 
             //
             // dump all useless data
-            if (m_nTime!= 0 && m_ToA < m_trigTime)
+            if ( m_nTime!= 0 && m_ToA < m_trigTime)
             {
                 currChunk = entryRaw;
                 continue;
@@ -665,8 +695,11 @@ Int_t DataProcess::processRoot()
 
             //
             // stop rawTree loop if further away then trigger+window
-            if (m_nTime!= 0 && m_ToA > (m_trigTime + m_timeWindow))
+            if ( m_nTime!= 0 && m_ToA > (m_trigTime + m_timeWindow))
             {
+                cout << "entries in chunk " << entryRaw-currChunk << endl;
+                cout << "========================" << endl;
+
                 currChunk = entryRaw;
                 break;
             }
@@ -694,17 +727,18 @@ Int_t DataProcess::processRoot()
                 if (m_bRow)     fprintf(m_filesCsv.back(), "%u\t",  m_row);
                 if (m_bToA)     fprintf(m_filesCsv.back(), "%llu\t",m_ToA);
                 if (m_bToT)     fprintf(m_filesCsv.back(), "%u\t",  m_ToT);
-                if (m_bTrigToA) fprintf(m_filesCsv.back(), "%llu\t",  m_ToA - m_trigTime);
-                fprintf(m_filesCsv.back(), "\n");
+                if (m_bTrigToA) fprintf(m_filesCsv.back(), "%llu\t",m_ToA - m_trigTime);
 
-                if (m_bTrig)    m_histTriggerToA->Fill(m_ToA - m_trigTime);
+                if (m_bTrigToA) m_histTriggerToA->Fill(m_ToA - m_trigTime);
+
+                fprintf(m_filesCsv.back(), "\n");
                 m_lineCounter++;
             }
         }
 
         //
         // stop cycle by incrementing nTime if no trigger entries found
-        if (m_nTime == 0) m_nTime++;
+        if (m_nTime == 0 ) m_nTime = 1;
         entryTime++;
     }
 
@@ -715,7 +749,9 @@ Int_t DataProcess::processRoot()
 void DataProcess::finishMsg(TString operation, UInt_t events, Int_t fileCounter)
 {
     cout << "==============================================="  << endl;
-    cout << "========== "<< operation << " IS DONE !!!  =============="  << endl;
+    cout << m_fileNameInput << endl;
+    cout << "==============================================="  << endl;
+    cout << "====== "<< operation << " IS DONE !!!  ==========="  << endl;
     cout << "==============================================="  << endl;
     cout << "====  " << events << " events from total of " << m_nRaw << " selected!"  << endl;
     cout << "====  " << fileCounter << " FILE(S) WRITTEN OUT!!!"  << endl;
@@ -724,5 +760,6 @@ void DataProcess::finishMsg(TString operation, UInt_t events, Int_t fileCounter)
 
 ULong64_t DataProcess::roundToNs(ULong64_t number)
 {
-    return (ULong64_t) (((ULong64_t) ((number * 6.1) + 0.5) / (ULong64_t) 1000.0) + 0.5);
+    return number;
+//    return (ULong64_t) (((ULong64_t) ((number * 6.1) + 0.5) / 1000.0) + 0.5);
 }
