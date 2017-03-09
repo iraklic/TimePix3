@@ -1,5 +1,6 @@
 //==================================
 // Author: IRAKLI CHAKABERIA   =====
+// Coauthor: PETER SVIHRA      =====
 // Date: 2017-02-14            =====
 //==================================
 
@@ -9,7 +10,10 @@
 #include <TGNumberEntry.h>
 #include <TG3DLine.h>
 #include <TApplication.h>
-#include "TGTextEntry.h"
+
+#include "TGTextEdit.h"
+#include "TGText.h"
+#include "TGDimension.h"
 
 #include "dataprocess.h"
 
@@ -43,12 +47,12 @@ class TextMargin : public TGHorizontalFrame {
 };
 
 class DRGui : public TGMainFrame {
-	protected:
+protected:
 	TGTextButton * fButton;
-	TGTextButton * bButton;
-	TGTextEntry * rootFile;
+        TGTextButton * bButton;
+        TGTextEdit * rootFile;
 
-	public:
+public:
 	bool bnHits;
 	bool bCol;
 	bool bRow;
@@ -62,7 +66,6 @@ class DRGui : public TGMainFrame {
 	bool bSingleFile;
 	bool bNoTrigWindow;
 
-	int nHitsCut;
 	int timeWindow;
 	int linesPerFile;
 
@@ -87,6 +90,9 @@ class DRGui : public TGMainFrame {
 	void Browse();
 
         ClassDef(DRGui, 0);
+
+private:
+        TString m_infoMsg;
 };
 
 DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
@@ -105,8 +111,9 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         ptProcess = procAll;
 
 	linesPerFile = 100000;
-	nHitsCut = 1;
-	timeWindow = 40;
+        timeWindow = 40;
+
+        m_infoMsg = "Select File";
 
 //	Controls on right
 	TGVerticalFrame * controls = new TGVerticalFrame(this);
@@ -135,15 +142,15 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 
 	fButton->Connect("Pressed()", "DRGui", this, "RunReducer()");
 
-//	BROWS FILE
-	rootFile = new TGTextEntry(contents, new TGTextBuffer(50));
-	rootFile->SetText("Select File");
+//	BROWSE FILE
+        rootFile = new TGTextEdit(contents, 600,200, m_infoMsg);
+        //rootFile->SetText();
 	bButton = new TGTextButton(contents, "Browse Files");
-	contents->AddFrame(rootFile, new TGLayoutHints(kLHintsLeft | kLHintsExpandX, 5, 5, 5, 5));
+        contents->AddFrame(rootFile, new TGLayoutHints(kLHintsLeft | kLHintsExpandX, 5, 5, 5, 5));
 	contents->AddFrame(bButton, new TGLayoutHints(kLHintsRight | kLHintsExpandX, 5, 5, 5, 5));
-	contents->AddFrame(fButton, new TGLayoutHints(kLHintsBottom | kLHintsExpandX | kLHintsExpandY, 5, 5, 5, 5));
+        contents->AddFrame(fButton, new TGLayoutHints(kLHintsBottom| kLHintsExpandX | kLHintsExpandY, 5, 5, 5, 5));
 
-	bButton->Connect("Clicked()", "DRGui", this, "Browse()");
+        bButton->Connect("Clicked()", "DRGui", this, "Browse()");
 
 //	VARIABLES
 	TGGroupFrame * varsGroup = new TGGroupFrame(variables, "Variables");
@@ -204,16 +211,13 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	TGGroupFrame * cuts = new TGGroupFrame(controls, "Cuts");
 	cuts->SetTitlePos(TGGroupFrame::kCenter);
 
-	TextMargin * nhits = new TextMargin(cuts, "nhits");
 	TextMargin * timeW = new TextMargin(cuts, "Time Window (micro s)");
 	timeW->SetEntry(40);
 	TGCheckButton * noTrigWindow = new TGCheckButton(cuts, "All Data");
 
-	cuts->AddFrame(nhits, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
 	cuts->AddFrame(timeW, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
 	cuts->AddFrame(noTrigWindow, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
 
-	nhits->GetEntry()->Connect("TextChanged(char*)", "DRGui", this, "ApplyCutsHits(char*)");
 	noTrigWindow->Connect("Toggled(Bool_t)", "TextMargin", timeW, "SetEnabled(Bool_t)");
 	noTrigWindow->Connect("Toggled(Bool_t)", "DRGui", this, "SelectNoTrigWindow(Bool_t)");
 	timeW->GetEntry()->Connect("TextChanged(char*)", "DRGui", this, "ApplyCutsTime(char*)");
@@ -253,16 +257,6 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	MapRaised();
 }
 
-void DRGui::RunReducer()
-{
-        DataProcess* processor = new DataProcess(rootFile->GetText());
-//        processor->setName(rootFile->GetText());
-        processor->setProcess(ptProcess);
-        processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigToA, bNoTrigWindow, timeWindow, bSingleFile, linesPerFile);
-        processor->process();
-}
-
-void DRGui::ApplyCutsHits(char * val) { nHitsCut = atoi(val); }
 void DRGui::ApplyCutsTime(char * val) { timeWindow = atoi(val); }
 void DRGui::ApplyCutsLines(char * val) { linesPerFile = atoi(val); }
 
@@ -280,16 +274,60 @@ void DRGui::SelectRoot(Bool_t check)    { if (check) ptProcess = procRoot; }
 void DRGui::SelectSingleFile(Bool_t check) { bSingleFile = check; }
 void DRGui::SelectNoTrigWindow(Bool_t check) { bNoTrigWindow = check; }
 
-void DRGui::Browse() {
+void DRGui::Browse()
+{
 	static TString dir(".");
 	TGFileInfo fileInfo;
+        fileInfo.SetMultipleSelection(kTRUE);
 	fileInfo.fFileTypes = fileTypes;
 	fileInfo.fIniDir = StrDup(dir);
-	new TGFileDialog(gClient->GetRoot(), this, kFDOpen, &fileInfo);
-	if (fileInfo.fFilename) {
-		rootFile->SetText(fileInfo.fFilename);
-	}
-	dir = fileInfo.fIniDir;
+
+        //
+        // browsing dialog - multiple files or one file only
+        new TGFileDialog(gClient->GetRoot(), this, kFDOpen, &fileInfo);
+        if (fileInfo.fMultipleSelection && fileInfo.fFileNamesList)
+        {
+            rootFile->Clear();
+
+            TObjString *el;
+            TIter next(fileInfo.fFileNamesList);
+            while ((el = (TObjString *) next()))
+            {
+              rootFile->AddLine(el->GetString());
+            }
+        }
+        else if (fileInfo.fFilename)
+        {
+            rootFile->Clear();
+            rootFile->AddLine(fileInfo.fFilename);
+        }
+        rootFile->NextChar();
+        rootFile->DelChar();
+        dir = fileInfo.fIniDir;
+}
+
+void DRGui::RunReducer()
+{
+        TString fileName = "";
+        TGText* inputFileNames = new TGText(rootFile->GetText());
+        TGLongPosition pos = TGLongPosition(0,0);
+
+        Int_t lineNumber = 0;
+        Int_t lineLength = 0;
+        DataProcess* processor = new DataProcess(fileName);
+        while( (lineLength = inputFileNames->GetLineLength(lineNumber)) != -1)
+        {
+            pos = TGLongPosition(0,lineNumber++);
+            fileName = inputFileNames->GetLine(pos,lineLength);
+
+            if (lineLength > 4 )//&& ! (fileName == m_infoMsg))
+            {
+                processor->setName(fileName);
+                processor->setProcess(ptProcess);
+                processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigToA, bNoTrigWindow, timeWindow*1000, bSingleFile, linesPerFile);
+                processor->process();
+            }
+        }
 }
 
 void DRGUI() {
