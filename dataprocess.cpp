@@ -83,6 +83,7 @@ Int_t DataProcess::process()
             if ( openDat()) return -1;
             if ( openRoot()) return -1;
             processDat();
+            finishMsg("processing data", m_pixelCounter);
             closeDat();
             closeRoot();
 
@@ -90,6 +91,7 @@ Int_t DataProcess::process()
         case procRoot:
             if ( openRoot()) return -1;
             processRoot();
+            finishMsg("processing root", m_lineCounter, m_filesCsv.size());
             closeRoot();
 
             break;
@@ -97,7 +99,9 @@ Int_t DataProcess::process()
             if ( openDat()) return -1;
             if ( openRoot()) return -1;
             processDat();
+            finishMsg("processing data", m_pixelCounter);
             processRoot();
+            finishMsg("processing root", m_lineCounter, m_filesCsv.size());
             closeDat();
             closeRoot();
 
@@ -386,7 +390,8 @@ Int_t DataProcess::processDat()
     deque<ULong64_t>   ToAs;
 
     UInt_t sortSize = MAXHITS;
-    UInt_t pcnt = 0;
+    m_pixelCounter = 0;
+    m_trigCnt = 0;
     UInt_t sortThreshold = 2*sortSize;
 
     UInt_t backjumpcnt = 0;
@@ -421,12 +426,12 @@ Int_t DataProcess::processDat()
     //
     // Main loop over all entries
     // nentries is either 1000000000 or user defined
-    while (!feof(m_fileDat) && pcnt < m_maxEntries)
+    while (!feof(m_fileDat) && m_pixelCounter < m_maxEntries)
     {
         //
         // read entries, write out each 10^5
         retVal = fread( &pixdata, sizeof(ULong64_t), 1, m_fileDat);
-        if (pcnt % 100000 == 0) cout << "Count " << pcnt << endl;
+        if (m_pixelCounter % 100000 == 0) cout << "Count " << m_pixelCounter << endl;
 
         //
         // reading data and saving them to deques or timeTrees
@@ -438,7 +443,7 @@ Int_t DataProcess::processDat()
             // finding header type (data part - frames/data driven)
             if (header == 0xA || header == 0xB)
             {
-                pcnt++;
+                m_pixelCounter++;
 
                 //
                 // calculate col and row
@@ -478,12 +483,13 @@ Int_t DataProcess::processDat()
                 // fill deques
                 Cols.push_back(col);
                 Rows.push_back(row);
-                ToTs.push_back(ToT);
+                ToTs.push_back(ToT*25); // save in ms
                 // subtract fast ToA (FToA count until the first clock edge, so less counts means later arrival of the hit)
                 ToAs.push_back((globaltime << 12) - (FToA << 8));
                 // now correct for the column to column phase shift (todo: check header for number of clock phases)
                 ToAs.back() += ( ( (col/2) %16 ) << 8 );
                 if (((col/2)%16) == 0) ToAs.back() += ( 16 << 8 );
+                ToAs.back() = roundToNs(ToAs.back()); // save in ms
             }
 
             //
@@ -521,7 +527,7 @@ Int_t DataProcess::processDat()
                             else cout << "small backward time jump in trigger packet " << m_trigCnt << " (jump of " << prev_trigtime_coarse-trigtime_coarse << ")" << endl;
                         }
                         trigCntr++;
-                        m_trigTime = ((trigtime_global_ext + trigtime_coarse) << 12) | trigtime_fine ;
+                        m_trigTime = roundToNs(((trigtime_global_ext + (ULong64_t) trigtime_coarse) << 12) | (ULong64_t) trigtime_fine); // save in ms
 
                         //
                         // fill timeTree and trigger histogram
@@ -555,7 +561,7 @@ Int_t DataProcess::processDat()
         //
         // sorting the data, wait for either finishing the file or reaching sorting count
         // list contain 2*sortSize elements
-        if ( (pcnt >= sortThreshold) || (retVal <= 0) )
+        if ( (m_pixelCounter >= sortThreshold) || (retVal <= 0) )
         {
             //
             // processing either sort size or hitlist size
@@ -604,27 +610,30 @@ Int_t DataProcess::processDat()
 
             //
             // increase the threshold size
-            sortThreshold = pcnt + sortSize;
+            sortThreshold = m_pixelCounter + sortSize;
 
             //
             // end of read data
             if (Cols.size() == 0)
             {
-                cout << "OK1 found " << pcnt << " pixel packets" << endl;
-                cout << backjumpcnt << " backward time jumps" << endl;
+                m_nRaw = m_rawTree->GetEntries();
+                m_nTime = m_timeTree->GetEntries();
+                cout << "===" << backjumpcnt << " backward time jumps found ==" << endl;
 
                 return 0;
             }
         }
     }
 
-    cout << "Wrong exit... found " << pcnt << " pixel packets" << endl;
+    m_nRaw = m_rawTree->GetEntries();
+    m_nTime = m_timeTree->GetEntries();
+    cout << "Not all pixel packets found" << endl;
     return 0;
 }
 
 Int_t DataProcess::processRoot()
 {
-    UInt_t lineCounter = 0;
+    m_lineCounter = 0;
     UInt_t currChunk = 0;
 
     m_nRaw = m_rawTree->GetEntries();
@@ -672,9 +681,9 @@ Int_t DataProcess::processRoot()
 
                 //
                 // multiple file creation
-                if (lineCounter % m_linesPerFile == 0 && !m_bSingleFile)
+                if (m_lineCounter % m_linesPerFile == 0 && !m_bSingleFile)
                 {
-                    if (openCsv(TString::Format("%d", lineCounter / m_linesPerFile))) return -1;
+                    if (openCsv(TString::Format("%d", m_lineCounter / m_linesPerFile))) return -1;
                 }
 
                 //
@@ -688,8 +697,8 @@ Int_t DataProcess::processRoot()
                 if (m_bTrigToA) fprintf(m_filesCsv.back(), "%llu\t",  m_ToA - m_trigTime);
                 fprintf(m_filesCsv.back(), "\n");
 
-                m_histTriggerToA->Fill(m_ToA - m_trigTime);
-                lineCounter++;
+                if (m_bTrig)    m_histTriggerToA->Fill(m_ToA - m_trigTime);
+                m_lineCounter++;
             }
         }
 
@@ -699,17 +708,21 @@ Int_t DataProcess::processRoot()
         entryTime++;
     }
 
-    finishMsg(lineCounter, m_filesCsv.size());
     closeCsv();
     return 0;
 }
 
-void DataProcess::finishMsg(UInt_t events, Int_t fileCounter)
+void DataProcess::finishMsg(TString operation, UInt_t events, Int_t fileCounter)
 {
-        cout << "==============================================="  << endl;
-        cout << "============  JOB IS DONE !!!  ================"  << endl;
-        cout << "==============================================="  << endl;
-        cout << "====  " << events << " events from total of " << m_nRaw << " selected!"  << endl;
-        cout << "====  " << fileCounter << " FILE(S) WRITTEN OUT!!!"  << endl;
-        cout << "==============================================="  << endl;
+    cout << "==============================================="  << endl;
+    cout << "========== "<< operation << " IS DONE !!!  =============="  << endl;
+    cout << "==============================================="  << endl;
+    cout << "====  " << events << " events from total of " << m_nRaw << " selected!"  << endl;
+    cout << "====  " << fileCounter << " FILE(S) WRITTEN OUT!!!"  << endl;
+    cout << "==============================================="  << endl;
+}
+
+ULong64_t DataProcess::roundToNs(ULong64_t number)
+{
+    return (ULong64_t) (((ULong64_t) ((number * 6.1) + 0.5) / (ULong64_t) 1000.0) + 0.5);
 }

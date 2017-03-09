@@ -42,7 +42,8 @@ public:
 
 private:
     void processFileNames();
-    void finishMsg(UInt_t events, Int_t fileCounter = 1);
+    void finishMsg(TString operation, UInt_t events, Int_t fileCounter = 1);
+    ULong64_t roundToNs(ULong64_t number);
 
     Int_t openDat();
     Int_t openCsv(TString fileCounter = "");
@@ -62,6 +63,8 @@ private:
     ProcType    m_process;
     UInt_t      m_maxEntries;
     TStopwatch  m_time;
+    UInt_t      m_pixelCounter;
+    UInt_t      m_lineCounter;
 
     //
     // options of GUI
