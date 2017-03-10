@@ -17,6 +17,14 @@
 
 #include "dataprocess.h"
 
+void DRGUI() {
+    //
+    // Initialize library
+//    gROOT->ProcessLine(".L dataprocess.cpp+");
+
+    new DRGui();
+}
+
 const char * fileTypes[] = {
         "data files", "*.dat",
         "ROOT files", "*.root",
@@ -320,16 +328,20 @@ void DRGui::RunReducer()
             pos = TGLongPosition(0,lineNumber++);
             fileName = inputFileNames->GetLine(pos,lineLength);
 
-            if (lineLength > 4 )//&& ! (fileName == m_infoMsg))
+            if (fileName.EndsWith(".root") || fileName.EndsWith(".dat"))
             {
                 processor->setName(fileName);
                 processor->setProcess(ptProcess);
+                if (fileName.EndsWith(".root")) processor->setProcess(ProcType::procRoot);
+
                 processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigToA, bNoTrigWindow, timeWindow, bSingleFile, linesPerFile);
                 processor->process();
             }
+            else
+            {
+                cout << " ========================================== " << endl;
+                cout << " ======== INVALID ENTRY FILE NAME ========= " << endl;
+                cout << " ========================================== " << endl;
+            }
         }
-}
-
-void DRGUI() {
-	new DRGui();
 }

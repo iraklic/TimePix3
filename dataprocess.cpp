@@ -54,7 +54,7 @@ Int_t DataProcess::setOptions(Bool_t bCol,
     m_timeWindow    = (ULong64_t) ((timeWindow*1000000.0/6.1) + 0.5);
     m_linesPerFile  = linesPerFile;
 
-    if (m_timeWindow*6.1/1000000000 > 500)
+    if (timeWindow/1000 > 500)
     {
             cout << " ========================================== " << endl;
             cout << " === " << timeWindow << " ms is very large winwdow!!!" << endl;
