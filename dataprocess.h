@@ -10,7 +10,7 @@
 #include "TH1.h"
 #include "TH2.h"
 
-#define MAXHITS 65536       // minimal value for sorting
+#define MAXHITS 100000       // minimal value for sorting 65k
 
 using namespace std;
 
@@ -35,7 +35,7 @@ public:
                       Bool_t bTrig = kTRUE,
                       Bool_t bTrigToA = kTRUE,
                       Bool_t bNoTrigWindow = kFALSE,
-                      Int_t  timeWindow = 40,
+                      ULong64_t timeWindow = 6000000,
                       Bool_t singleFile = kFALSE,
                       Int_t  linesPerFile = 100000);
     Int_t process();
@@ -77,8 +77,8 @@ private:
     Bool_t m_bNoTrigWindow;
     Bool_t m_bSingleFile;
 
-    Int_t m_timeWindow;
-    Int_t m_linesPerFile;
+    ULong64_t   m_timeWindow;
+    UInt_t      m_linesPerFile;
 
     //
     // file names

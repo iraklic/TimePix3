@@ -39,7 +39,7 @@ Int_t DataProcess::setOptions(Bool_t bCol,
                                Bool_t bTrig,
                                Bool_t bTrigToA,
                                Bool_t bNoTrigWindow,
-                               Int_t timeWindow,
+                               ULong64_t timeWindow,
                                Bool_t singleFile,
                                Int_t linesPerFile)
 {
@@ -54,7 +54,7 @@ Int_t DataProcess::setOptions(Bool_t bCol,
     m_timeWindow    = timeWindow;
     m_linesPerFile  = linesPerFile;
 
-    if (m_timeWindow/1000000000 > 500)
+    if (m_timeWindow*6.1/1000000000 > 500)
     {
             cout << " ========================================== " << endl;
             cout << " === " << timeWindow << " ms is very large winwdow!!!" << endl;
@@ -276,7 +276,7 @@ Int_t DataProcess::openRoot()
 
         m_timeTree = new TTree("timetree", "Tpx3 camera, March 2017");
         m_timeTree->Branch("TrigCntr", &m_trigCnt, "TrigCntr/i");
-        m_timeTree->Branch("TrigTime", &m_trigTime,"TrigTimeGlobal/l");
+        m_timeTree->Branch("TrigTime", &m_trigTime,"TrigTime/l");
 
         //
         // create plots
@@ -502,7 +502,6 @@ Int_t DataProcess::processDat()
                 // now correct for the column to column phase shift (todo: check header for number of clock phases)
                 ToAs.back() += ( ( (col/2) %16 ) << 8 );
                 if (((col/2)%16) == 0) ToAs.back() += ( 16 << 8 );
-                ToAs.back() = roundToNs(ToAs.back()); // save in ns
             }
 
             //
@@ -540,7 +539,7 @@ Int_t DataProcess::processDat()
                             else cout << "small backward time jump in trigger packet " << m_trigCnt << " (jump of " << prev_trigtime_coarse-trigtime_coarse << ")" << endl;
                         }
                         trigCntr++;
-                        m_trigTime = roundToNs(((trigtime_global_ext + (ULong64_t) trigtime_coarse) << 12) | (ULong64_t) trigtime_fine); // save in ns
+                        m_trigTime = ((trigtime_global_ext + (ULong64_t) trigtime_coarse) << 12) | (ULong64_t) trigtime_fine; // save in ns
 
                         //
                         // fill timeTree and trigger histogram
@@ -587,12 +586,14 @@ Int_t DataProcess::processDat()
             for (UInt_t i = 0; i < Cols.size() ; i++)
             {
                 UInt_t j = i;
-                while (j > 0 && ToAs[j-1] > ToAs[j])
+                while (j > 0 && ToAs[j-1] > ToAs[j])//(ToAs[j-1] & 0xFFFF) > (ToAs[j] & 0xFFFF))
                 {
                     swap(Cols[j-1],Cols[j]);
                     swap(Rows[j-1],Rows[j]);
                     swap(ToTs[j-1],ToTs[j]);
                     swap(ToAs[j-1],ToAs[j]);
+
+                    j--;
                 }
             }
 
@@ -647,6 +648,7 @@ Int_t DataProcess::processDat()
 Int_t DataProcess::processRoot()
 {
     m_lineCounter = 0;
+    UInt_t uselessChunk = 0;
     UInt_t currChunk = 0;
     UInt_t entryTime = 0;
     ULong64_t tmpTrigTime = 0;
@@ -659,31 +661,31 @@ Int_t DataProcess::processRoot()
     // loop entries in timeTree
     while (entryTime < m_nTime || m_nTime == 0)
     {
+        if (entryTime % 50 == 0) cout << "Time entry " << entryTime << " out of " << m_nTime << " done!" << endl;
+
         if (m_nTime != 0)
         {
-            if (m_bNoTrigWindow && (entryTime + 1) < m_nTime)
+            if (m_bNoTrigWindow && ((entryTime + 1) < m_nTime))
             {
                 m_timeTree->GetEntry(entryTime + 1);
                 tmpTrigTime = m_trigTime;
                 m_timeTree->GetEntry(entryTime);
-                m_timeWindow = (Int_t) (tmpTrigTime - m_trigTime);
+                m_timeWindow = tmpTrigTime - m_trigTime;
             }
             else
             {
                 m_timeTree->GetEntry(entryTime);
             }
             cout << "========================" << endl;
-            cout << "trig window is " << m_timeWindow << endl;
+            cout << "Time window is " << m_timeWindow << endl;
         }
-
-        if (entryTime % 50 == 0) cout << entryTime << " out of " << m_nTime << " done!" << endl;
 
         //
         // loop entries in rawTree
         for (UInt_t entryRaw = currChunk; entryRaw < m_nRaw; entryRaw++)
         {
             m_rawTree->GetEntry(entryRaw);
-            if (entryRaw % 10000 == 0 && m_nTime == 0) cout << entryRaw << " of " << m_nRaw << " done!" << endl;
+            if (entryRaw % 10000 == 0 && m_nTime == 0) cout << "Raw entry " << entryRaw << " of " << m_nRaw << " done!" << endl;
 
             //
             // dump all useless data
@@ -697,10 +699,12 @@ Int_t DataProcess::processRoot()
             // stop rawTree loop if further away then trigger+window
             if ( m_nTime!= 0 && m_ToA > (m_trigTime + m_timeWindow))
             {
-                cout << "entries in chunk " << entryRaw-currChunk << endl;
+                cout << "useless entries " << currChunk - uselessChunk << endl;
+                cout << "entries in chunk " << entryRaw - currChunk << endl;
                 cout << "========================" << endl;
 
                 currChunk = entryRaw;
+                uselessChunk = currChunk;
                 break;
             }
             else
@@ -760,6 +764,6 @@ void DataProcess::finishMsg(TString operation, UInt_t events, Int_t fileCounter)
 
 ULong64_t DataProcess::roundToNs(ULong64_t number)
 {
-    return number;
-//    return (ULong64_t) (((ULong64_t) ((number * 6.1) + 0.5) / 1000.0) + 0.5);
+//    return number;
+    return (ULong64_t) (((ULong64_t) ((number * 6.1) + 0.5) / 1000.0) + 0.5);
 }
