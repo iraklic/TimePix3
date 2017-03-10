@@ -526,7 +526,6 @@ Int_t DataProcess::processDat()
                     if (trigCntr == 0 && m_trigCnt != 1)
                     {
                         cout << "first trigger number in file is not 1" << endl;
-                        trigCntr++; // added so the error does not repeat, could cause problem if trigCnt was 0 even for second iteration (maybe?)
                     } else
                     {
                         if ( trigtime_coarse < prev_trigtime_coarse )   // 32 time counter wrapped
@@ -676,8 +675,8 @@ Int_t DataProcess::processRoot()
             {
                 m_timeTree->GetEntry(entryTime);
             }
-            cout << "========================" << endl;
-            cout << "Time window is " << m_timeWindow << endl;
+//            cout << "========================" << endl;
+//            cout << "Time window is " << m_timeWindow << endl;
         }
 
         //
@@ -699,9 +698,9 @@ Int_t DataProcess::processRoot()
             // stop rawTree loop if further away then trigger+window
             if ( m_nTime!= 0 && m_ToA > (m_trigTime + m_timeWindow))
             {
-                cout << "useless entries " << currChunk - uselessChunk << endl;
-                cout << "entries in chunk " << entryRaw - currChunk << endl;
-                cout << "========================" << endl;
+//                cout << "useless entries " << currChunk - uselessChunk << endl;
+//                cout << "entries in chunk " << entryRaw - currChunk << endl;
+//                cout << "========================" << endl;
 
                 currChunk = entryRaw;
                 uselessChunk = currChunk;
