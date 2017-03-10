@@ -324,7 +324,7 @@ void DRGui::RunReducer()
             {
                 processor->setName(fileName);
                 processor->setProcess(ptProcess);
-                processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigToA, bNoTrigWindow, timeWindow*1000, bSingleFile, linesPerFile);
+                processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigToA, bNoTrigWindow, timeWindow, bSingleFile, linesPerFile);
                 processor->process();
             }
         }
