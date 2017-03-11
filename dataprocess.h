@@ -33,6 +33,7 @@ public:
                       Bool_t bToT = kTRUE,
                       Bool_t bToA = kTRUE,
                       Bool_t bTrig = kTRUE,
+                      Bool_t bTrigTime = kTRUE,
                       Bool_t bTrigToA = kTRUE,
                       Bool_t bNoTrigWindow = kFALSE,
                       ULong64_t timeWindow = 6000000,
@@ -73,6 +74,7 @@ private:
     Bool_t m_bToT;
     Bool_t m_bToA;
     Bool_t m_bTrig;
+    Bool_t m_bTrigTime;
     Bool_t m_bTrigToA;
     Bool_t m_bNoTrigWindow;
     Bool_t m_bSingleFile;

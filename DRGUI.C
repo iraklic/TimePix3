@@ -67,6 +67,7 @@ public:
 	bool bToA;
 	bool bToT;
         bool bTrig;
+        bool bTrigTime;
         bool bTrigToA;
 
         ProcType ptProcess;
@@ -88,6 +89,7 @@ public:
 	void SelectToA(Bool_t);
 	void SelectToT(Bool_t);
         void SelectTrig(Bool_t);
+        void SelectTrigTime(Bool_t);
         void SelectTrigToA(Bool_t);
         void SelectData(Bool_t);
         void SelectRoot(Bool_t);
@@ -112,6 +114,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	bToA = true;
 	bToT = true;
         bTrig = true;
+        bTrigTime = true;
         bTrigToA = true;
 	bNoTrigWindow = false;
 	bSingleFile = false;
@@ -167,29 +170,33 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         TGCheckButton * row     = new TGCheckButton(varsGroup, "Row");
         TGCheckButton * toa     = new TGCheckButton(varsGroup, "ToA");
         TGCheckButton * tot     = new TGCheckButton(varsGroup, "ToT");
-        TGCheckButton * trig    = new TGCheckButton(varsGroup, "Trigger");
-        TGCheckButton * trigtoa = new TGCheckButton(varsGroup, "Trigger-ToA");
+        TGCheckButton * trig    = new TGCheckButton(varsGroup, "Trigger ID");
+        TGCheckButton * trigTime= new TGCheckButton(varsGroup, "Trigger Time");
+        TGCheckButton * trigToA = new TGCheckButton(varsGroup, "ToA-Trigger");
 
 	col->SetOn();
 	row->SetOn();
 	toa->SetOn();
 	tot->SetOn();
         trig->SetOn();
-        trigtoa->SetOn();
+        trigTime->SetOn();
+        trigToA->SetOn();
 
-        varsGroup->AddFrame(col,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
-        varsGroup->AddFrame(row,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
-        varsGroup->AddFrame(toa,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
-        varsGroup->AddFrame(tot,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
-        varsGroup->AddFrame(trig,   new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
-        varsGroup->AddFrame(trigtoa,new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        varsGroup->AddFrame(col,     new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        varsGroup->AddFrame(row,     new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        varsGroup->AddFrame(toa,     new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        varsGroup->AddFrame(tot,     new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        varsGroup->AddFrame(trig,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        varsGroup->AddFrame(trigTime,new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        varsGroup->AddFrame(trigToA, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 
         col     ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectCol(Bool_t)");
         row     ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectRow(Bool_t)");
         toa     ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectToA(Bool_t)");
         tot     ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectToT(Bool_t)");
         trig    ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectTrig(Bool_t)");
-        trigtoa ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectTrigToA(Bool_t)");
+        trigTime->Connect("Toggled(Bool_t)", "DRGui", this, "SelecTtrigTime(Bool_t)");
+        trigToA ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectTrigToA(Bool_t)");
 
 	variables->AddFrame(varsGroup, new TGLayoutHints(kLHintsExpandX));
 
@@ -268,12 +275,13 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 void DRGui::ApplyCutsTime(char * val) { timeWindow = atoi(val); }
 void DRGui::ApplyCutsLines(char * val) { linesPerFile = atoi(val); }
 
-void DRGui::SelectCol(Bool_t check)     { bCol = check; }
-void DRGui::SelectRow(Bool_t check)     { bRow = check; }
-void DRGui::SelectToA(Bool_t check)     { bToA = check; }
-void DRGui::SelectToT(Bool_t check)     { bToT = check; }
-void DRGui::SelectTrig(Bool_t check)    { bTrig = check; }
-void DRGui::SelectTrigToA(Bool_t check) { bTrigToA = check; }
+void DRGui::SelectCol(Bool_t check)      { bCol = check; }
+void DRGui::SelectRow(Bool_t check)      { bRow = check; }
+void DRGui::SelectToA(Bool_t check)      { bToA = check; }
+void DRGui::SelectToT(Bool_t check)      { bToT = check; }
+void DRGui::SelectTrig(Bool_t check)     { bTrig = check; }
+void DRGui::SelecTtrigTime(Bool_t check) { bTrigTime = check; }
+void DRGui::SelectTrigToA(Bool_t check)  { bTrigToA = check; }
 
 void DRGui::SelectAll(Bool_t check)     { if (check) ptProcess = procAll; }
 void DRGui::SelectData(Bool_t check)    { if (check) ptProcess = procDat; }
@@ -334,7 +342,7 @@ void DRGui::RunReducer()
                 processor->setProcess(ptProcess);
                 if (fileName.EndsWith(".root")) processor->setProcess(ProcType::procRoot);
 
-                processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigToA, bNoTrigWindow, timeWindow, bSingleFile, linesPerFile);
+                processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bNoTrigWindow, timeWindow, bSingleFile, linesPerFile);
                 processor->process();
             }
             else

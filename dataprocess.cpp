@@ -33,21 +33,23 @@ void DataProcess::setNEntries(UInt_t nEntries)
 }
 
 Int_t DataProcess::setOptions(Bool_t bCol,
-                               Bool_t bRow,
-                               Bool_t bToT,
-                               Bool_t bToA,
-                               Bool_t bTrig,
-                               Bool_t bTrigToA,
-                               Bool_t bNoTrigWindow,
-                               ULong64_t timeWindow,
-                               Bool_t singleFile,
-                               Int_t linesPerFile)
+                              Bool_t bRow,
+                              Bool_t bToT,
+                              Bool_t bToA,
+                              Bool_t bTrig,
+                              Bool_t bTrigTime,
+                              Bool_t bTrigToA,
+                              Bool_t bNoTrigWindow,
+                              ULong64_t timeWindow,
+                              Bool_t singleFile,
+                              Int_t linesPerFile)
 {
     m_bCol          = bCol;
     m_bRow          = bRow;
     m_bToT          = bToT;
     m_bToA          = bToA;
     m_bTrig         = bTrig;
+    m_bTrigTime     = bTrigTime;
     m_bTrigToA      = bTrigToA;
     m_bNoTrigWindow = bNoTrigWindow;
     m_bSingleFile   = singleFile;
@@ -236,7 +238,7 @@ Int_t DataProcess::openCsv(TString fileCounter)
     m_filesCsv.push_back(fileCsv);
 
     if (m_bTrig)    fprintf(m_filesCsv.back(), "#TrigId\t");
-    if (m_bTrig)    fprintf(m_filesCsv.back(), "#TrigTime\t");
+    if (m_bTrigTime)fprintf(m_filesCsv.back(), "#TrigTime\t");
     if (m_bCol)     fprintf(m_filesCsv.back(), "#Col\t");
     if (m_bRow)     fprintf(m_filesCsv.back(), "#Row\t");
     if (m_bToA)     fprintf(m_filesCsv.back(), "#ToA\t");
@@ -269,9 +271,9 @@ Int_t DataProcess::openRoot()
         //
         // create trees
         m_rawTree = new TTree("rawtree", "Tpx3 camera, March 2017");
-        m_rawTree->Branch("Col", &m_col, "Col/I");
-        m_rawTree->Branch("Row", &m_row, "Row/I");
-        m_rawTree->Branch("ToT", &m_ToT, "ToT/I");
+        m_rawTree->Branch("Col", &m_col, "Col/i");
+        m_rawTree->Branch("Row", &m_row, "Row/i");
+        m_rawTree->Branch("ToT", &m_ToT, "ToT/i");
         m_rawTree->Branch("ToA", &m_ToA, "ToA/l");    // l for long
 
         m_timeTree = new TTree("timetree", "Tpx3 camera, March 2017");
@@ -293,7 +295,7 @@ Int_t DataProcess::openRoot()
     }
     else if (m_process == procRoot)
     {
-        m_fileRoot = new TFile(m_fileNamePath + m_fileNameRoot, "READ");
+        m_fileRoot = new TFile(m_fileNamePath + m_fileNameRoot, "UPDATE");
         cout << m_fileNameRoot << " at " << m_fileNamePath << endl;
 
         //
@@ -654,7 +656,7 @@ Int_t DataProcess::processRoot()
 
     m_nRaw = m_rawTree->GetEntries();
     m_nTime = m_timeTree->GetEntries();
-    if (m_nTime == 0) m_bTrig = m_bTrigToA = kFALSE;
+    if (m_nTime == 0) m_bTrig = m_bTrigTime = m_bTrigToA = kFALSE;
 
     //
     // loop entries in timeTree
@@ -703,7 +705,7 @@ Int_t DataProcess::processRoot()
 //                cout << "========================" << endl;
 
                 currChunk = entryRaw;
-                uselessChunk = currChunk;
+//                uselessChunk = currChunk;
                 break;
             }
             else
@@ -725,7 +727,7 @@ Int_t DataProcess::processRoot()
                 //
                 // write actual data
                 if (m_bTrig)    fprintf(m_filesCsv.back(), "%u\t",  m_trigCnt);
-                if (m_bTrig)    fprintf(m_filesCsv.back(), "%llu\t",m_trigTime);
+                if (m_bTrigTime)fprintf(m_filesCsv.back(), "%llu\t",m_trigTime);
                 if (m_bCol)     fprintf(m_filesCsv.back(), "%u\t",  m_col);
                 if (m_bRow)     fprintf(m_filesCsv.back(), "%u\t",  m_row);
                 if (m_bToA)     fprintf(m_filesCsv.back(), "%llu\t",m_ToA);
