@@ -392,7 +392,7 @@ Int_t DataProcess::openRoot()
         m_ToAvsToT      = (TH2I *) m_fileRoot->Get("ToAvsToT");
 
         m_histTrigger   = (TH1I *) m_fileRoot->Get("histTrigger");
-        m_histTriggerToA= new TH1I("histTriggerToA", "TriggerToA", 1000, 0, 0);
+        m_histTriggerToA= new TH1I("histTriggerToA", "TriggerToA", binCount, 0, binMax);
     }
 
     m_fileRoot->cd();
