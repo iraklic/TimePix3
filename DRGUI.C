@@ -10,11 +10,14 @@
 #include <TGNumberEntry.h>
 #include <TG3DLine.h>
 #include <TApplication.h>
+#include <TSysEvtHandler.h>
 
 #include "TGTextEdit.h"
 #include "TGText.h"
 #include "TGDimension.h"
+#include "TObjString.h"
 
+#include <deque>
 #include "dataprocess.h"
 
 void DRGUI() {
@@ -57,8 +60,11 @@ class TextMargin : public TGHorizontalFrame {
 class DRGui : public TGMainFrame {
 protected:
 	TGTextButton * fButton;
+        TGTextButton * sButton;
         TGTextButton * bButton;
         TGTextEdit * rootFile;
+
+        TSignalHandler * sigHandler;
 
 public:
 	bool bnHits;
@@ -71,6 +77,8 @@ public:
         bool bTrigToA;
 
         ProcType ptProcess;
+        bool bCombineInput;
+        int inputNumber;
 
 	bool bSingleFile;
 	bool bNoTrigWindow;
@@ -79,7 +87,9 @@ public:
 	int linesPerFile;
 
 	DRGui();
+        void ProcessNames();
 	void RunReducer();
+        void StopReducer();
 	void ApplyCutsHits(char *);
 	void ApplyCutsTime(char *);
 	void ApplyCutsLines(char *);
@@ -97,12 +107,15 @@ public:
 	void SelectSingleFile(Bool_t);
 	void SelectNoTrigWindow(Bool_t);
 
+        void SelectCombined(Bool_t);
+
 	void Browse();
 
         ClassDef(DRGui, 0);
 
 private:
         TString m_infoMsg;
+        TObjString m_inputNames[16];
 };
 
 DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
@@ -118,6 +131,8 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         bTrigToA = true;
 	bNoTrigWindow = false;
 	bSingleFile = false;
+        bCombineInput = false;
+        inputNumber = 0;
 
         ptProcess = procAll;
 
@@ -153,6 +168,16 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 
 	fButton->Connect("Pressed()", "DRGui", this, "RunReducer()");
 
+//      STOPPING EXECUTION
+        sButton = new TGTextButton(contents, "&STOP THE DATA REDUCER");
+        sButton->SetToolTipText("Stop the reducer macro", 200);
+
+        sButton->Connect("Pressed()", "DRGui", this, "StopReducer()");
+
+        sigHandler = new TSignalHandler(kSigInterrupt);
+        sigHandler->Add();
+        sigHandler->Connect("Notified()", "DRGui", this, "StopReducer()");
+
 //	BROWSE FILE
         rootFile = new TGTextEdit(contents, 600,200, m_infoMsg);
         //rootFile->SetText();
@@ -160,6 +185,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         contents->AddFrame(rootFile, new TGLayoutHints(kLHintsLeft | kLHintsExpandX, 5, 5, 5, 5));
 	contents->AddFrame(bButton, new TGLayoutHints(kLHintsRight | kLHintsExpandX, 5, 5, 5, 5));
         contents->AddFrame(fButton, new TGLayoutHints(kLHintsBottom| kLHintsExpandX | kLHintsExpandY, 5, 5, 5, 5));
+        contents->AddFrame(sButton, new TGLayoutHints(kLHintsBottom| kLHintsExpandX, 5, 5, 5, 5));
 
         bButton->Connect("Clicked()", "DRGui", this, "Browse()");
 
@@ -256,6 +282,19 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 
 	controls->AddFrame(outControl, new TGLayoutHints(kLHintsExpandX));
 
+//      INPUT CONTROL
+        TGVButtonGroup * combGroup = new TGVButtonGroup(controls, "Input File");
+        combGroup->SetTitlePos(TGGroupFrame::kCenter);
+        TGCheckButton * combIn = new TGCheckButton(combGroup, "Combine .dat files");
+
+        combIn->SetOn(kFALSE);
+
+        combGroup->AddFrame(combIn,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+
+        combIn->Connect("Toggled(Bool_t)", "DRGui", this, "SelectCombined(Bool_t)");
+
+        controls->AddFrame(combGroup, new TGLayoutHints(kLHintsExpandX));
+
 //	QUIT
 	TGTextButton *quit = new TGTextButton(controls, "Quit");
 	controls->AddFrame(quit, new TGLayoutHints(kLHintsBottom | kLHintsExpandX, 0, 0, 0, 5));
@@ -286,6 +325,8 @@ void DRGui::SelectTrigToA(Bool_t check)  { bTrigToA = check; }
 void DRGui::SelectAll(Bool_t check)     { if (check) ptProcess = procAll; }
 void DRGui::SelectData(Bool_t check)    { if (check) ptProcess = procDat; }
 void DRGui::SelectRoot(Bool_t check)    { if (check) ptProcess = procRoot; }
+
+void DRGui::SelectCombined(Bool_t check)    { if (check) bCombineInput = check; }
 
 void DRGui::SelectSingleFile(Bool_t check) { bSingleFile = check; }
 void DRGui::SelectNoTrigWindow(Bool_t check) { bNoTrigWindow = check; }
@@ -324,32 +365,67 @@ void DRGui::Browse()
 
 void DRGui::RunReducer()
 {
-        TString fileName = "";
-        TGText* inputFileNames = new TGText(rootFile->GetText());
-        TGLongPosition pos = TGLongPosition(0,0);
+        ProcessNames();
+        TString tmpString;
 
-        Int_t lineNumber = 0;
-        Int_t lineLength = 0;
-        DataProcess* processor = new DataProcess(fileName);
-        while( (lineLength = inputFileNames->GetLineLength(lineNumber)) != -1)
+        DataProcess* processor = new DataProcess();
+        if (bCombineInput)
         {
-            pos = TGLongPosition(0,lineNumber++);
-            fileName = inputFileNames->GetLine(pos,lineLength);
-
-            if (fileName.EndsWith(".root") || fileName.EndsWith(".dat"))
+            processor->setName(m_inputNames, inputNumber);
+            processor->setProcess(ptProcess);
+        }
+        else
+        {
+            for (int i = 0; i <  inputNumber; i++)
             {
-                processor->setName(fileName);
-                processor->setProcess(ptProcess);
-                if (fileName.EndsWith(".root")) processor->setProcess(ProcType::procRoot);
-
-                processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bNoTrigWindow, timeWindow, bSingleFile, linesPerFile);
-                processor->process();
-            }
-            else
-            {
-                cout << " ========================================== " << endl;
-                cout << " ======== INVALID ENTRY FILE NAME ========= " << endl;
-                cout << " ========================================== " << endl;
+                tmpString = m_inputNames[i].GetString();
+                if (tmpString.EndsWith(".root"))
+                {
+                    processor->setProcess(ProcType::procRoot);
+                }
+                else if (tmpString.EndsWith(".dat"))
+                {
+                    processor->setProcess(ptProcess);
+                }
+                processor->setName(tmpString);
             }
         }
+        processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bNoTrigWindow, timeWindow, bSingleFile, linesPerFile);
+        processor->process();
+}
+
+void DRGui::ProcessNames()
+{
+    TString fileName = "";
+    TGText* inputFileNames = new TGText(rootFile->GetText());
+    TGLongPosition pos = TGLongPosition(0,0);
+
+    Int_t lineNumber = 0;
+    Int_t lineLength = 0;
+    inputNumber = 0;
+    while( (lineLength = inputFileNames->GetLineLength(lineNumber)) != -1)
+    {
+        pos = TGLongPosition(0,lineNumber++);
+        fileName = inputFileNames->GetLine(pos,lineLength);
+
+        if (fileName.EndsWith(".root") || fileName.EndsWith(".dat"))
+        {
+            m_inputNames[inputNumber++] = fileName;
+        }
+        else
+        {
+            cout << " ========================================== " << endl;
+            cout << " ======== INVALID ENTRY FILE NAME ========= " << endl;
+            cout << fileName << endl;
+            cout << " ========================================== " << endl;
+        }
+    }
+}
+
+void DRGui::StopReducer()
+{
+    cout << "==============================================="  << endl;
+    cout << "======== REDUCER SUCCESSFULLY STOPPED ========="  << endl;
+    cout << "==============================================="  << endl;
+    gSystem->ExitLoop();
 }

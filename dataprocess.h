@@ -3,6 +3,9 @@
 
 #include <deque>
 
+#include "TSysEvtHandler.h"
+
+#include "TObjString.h"
 #include "TString.h"
 #include "TStopwatch.h"
 
@@ -24,8 +27,9 @@ enum ProcType
 class DataProcess
 {
 public:
-    DataProcess(TString fileNameInput);
+    DataProcess(TString fileNameInput = "");
     void setName(TString fileNameInput);
+    void setName(TObjString *fileNameInput, Int_t size);
     void setProcess(ProcType process);
     void setNEntries(UInt_t nEntries);
     Int_t setOptions(Bool_t bCol = kTRUE,
@@ -40,17 +44,20 @@ public:
                       Bool_t singleFile = kFALSE,
                       Int_t  linesPerFile = 100000);
     Int_t process();
+    void StopLoop();
 
 private:
     Int_t processFileNames();
-    void finishMsg(TString operation, UInt_t events, Int_t fileCounter = 1);
+    void finishMsg(TString fileName, TString operation, UInt_t events, Int_t fileCounter = 1);
     ULong64_t roundToNs(ULong64_t number);
 
-    Int_t openDat();
+    Int_t openDat(Int_t fileCounter = 0);
     Int_t openCsv(TString fileCounter = "");
     Int_t openRoot();
 
     Int_t processDat();
+    Int_t skipHeader();
+
     Int_t processRoot();
     void plotStandardData();
 
@@ -66,6 +73,9 @@ private:
     TStopwatch  m_time;
     UInt_t      m_pixelCounter;
     UInt_t      m_lineCounter;
+    TSignalHandler* m_sigHandler;
+    Bool_t      m_bFirstTrig;
+    Bool_t      m_bDevID;
 
     //
     // options of GUI
@@ -84,16 +94,17 @@ private:
 
     //
     // file names
-    TString m_fileNameInput;
-    TString m_fileNamePath;
-    TString m_fileNameDat;
-    TString m_fileNameRoot;
-    TString m_fileNamePdf;
-    TString m_fileNameCsv;
+    Int_t           m_numInputs;
+    deque<TString > m_fileNameInput;
+    TString         m_fileNamePath;
+    deque<TString > m_fileNameDat;
+    TString         m_fileNameRoot;
+    TString         m_fileNamePdf;
+    TString         m_fileNameCsv;
 
     //
     // files
-    FILE*           m_fileDat;
+    deque<FILE* >   m_filesDat;
     TFile*          m_fileRoot;
     deque<FILE* >   m_filesCsv;
 

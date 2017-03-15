@@ -4,6 +4,10 @@
 #include <stdio.h>
 #include <algorithm>
 
+#include "dataprocess.h"
+
+#include "TSystem.h"
+
 #include "TFile.h"
 #include "TCanvas.h"
 
@@ -13,13 +17,35 @@ DataProcess::DataProcess(TString fileNameInput)
 {
     m_maxEntries = 1000000000;
     m_process = procAll;
-    m_fileNameInput = fileNameInput;
+//    m_fileNameInput.push_back(fileNameInput);
+    m_numInputs = 1;
+
+    m_sigHandler = new TSignalHandler(kSigInterrupt);
+    m_sigHandler->Add();
+    m_sigHandler->Connect("Notified()", "DataProcess", this, "StopLoop()");
+
+    m_pixelCounter = 0;
+    m_trigCnt = 0;
+    m_bFirstTrig = kFALSE;
+    m_bDevID = kFALSE;
 }
 
 void DataProcess::setName(TString fileNameInput)
 {
-    m_fileNameInput = fileNameInput;
-    cout << "file name input " << m_fileNameInput << endl;
+    m_numInputs = 1;
+    m_fileNameInput.push_back(fileNameInput);
+    cout << "file name input " << m_fileNameInput.back() << endl;
+}
+
+void DataProcess::setName(TObjString* fileNameInput, Int_t size)
+{
+    m_numInputs = size;
+
+    for (Int_t input = 0; input < m_numInputs; input++)
+    {
+        m_fileNameInput.push_back( fileNameInput[input].GetString()) ;
+        cout << "file name input " << m_fileNameInput.back() << " number " << input << endl;
+    }
 }
 
 void DataProcess::setProcess(ProcType process)
@@ -86,7 +112,6 @@ Int_t DataProcess::process()
             if ( openDat()) return -1;
             if ( openRoot()) return -1;
             processDat();
-            finishMsg("processing data", m_pixelCounter);
             closeDat();
             closeRoot();
 
@@ -94,7 +119,6 @@ Int_t DataProcess::process()
         case procRoot:
             if ( openRoot()) return -1;
             processRoot();
-            finishMsg("processing root", m_lineCounter, m_filesCsv.size());
             closeRoot();
 
             break;
@@ -102,9 +126,7 @@ Int_t DataProcess::process()
             if ( openDat()) return -1;
             if ( openRoot()) return -1;
             processDat();
-            finishMsg("processing data", m_pixelCounter);
             processRoot();
-            finishMsg("processing root", m_lineCounter, m_filesCsv.size());
             closeDat();
             closeRoot();
 
@@ -184,44 +206,81 @@ void DataProcess::plotStandardData()
 
 Int_t DataProcess::processFileNames()
 {
-    if (m_fileNameInput.Sizeof()==1) return -1;
+    deque<Int_t > inputNum;
+    TString tmpString;
 
-    UInt_t slash = m_fileNameInput.Last('/');
-    m_fileNamePath = m_fileNameInput(0,slash+1);
-    m_fileNameInput.Remove(0,slash+1);
-    UInt_t dotPos = m_fileNameInput.Last('.');
+    for (Int_t input = 0; input < m_numInputs; input++)
+    {
+        if (m_fileNameInput[input].Sizeof()==1) return -1;
 
-    m_fileNameDat   = m_fileNameInput;
-    m_fileNameRoot  = m_fileNameInput.Replace(dotPos, 200, ".root");
-    m_fileNamePdf   = m_fileNameInput.Replace(dotPos, 200, ".pdf");
-    m_fileNameCsv   = m_fileNameInput.Replace(dotPos, 200, ".csv");
+        UInt_t dotPos  = m_fileNameInput[input].Last('.');
+        UInt_t dashPos = m_fileNameInput[input].Last('-');
+        tmpString = m_fileNameInput[input];
+        TString tmpNum ( tmpString(dashPos+1,dotPos-dashPos-1) );
+        inputNum.push_back( tmpNum.Atoi() );
+    }
+
+    for (Int_t input = 0; input < m_numInputs; input++)
+    {
+        UInt_t j = input;
+        while (j > 0 && inputNum[j-1] > inputNum[j])
+        {
+            swap(inputNum[j-1],inputNum[j]);
+            swap(m_fileNameInput[j-1],m_fileNameInput[j]);
+
+            j--;
+        }
+    }
+
+    tmpString = m_fileNameInput[0];
+    UInt_t slash = tmpString.Last('/');
+    m_fileNamePath = tmpString(0,slash+1);
+
+    for (Int_t input = 0; input < m_numInputs; input++)
+    {
+        m_fileNameInput[input].Remove(0,slash+1);
+        m_fileNameDat.push_back( m_fileNameInput[input] );
+
+        //
+        // if one file only, keep number
+        UInt_t repPos;
+        if (m_numInputs == 1)   repPos = m_fileNameInput[input].Last('.');
+        else                    repPos = m_fileNameInput[input].Last('-');
+
+        m_fileNameRoot  = m_fileNameInput[input].Replace(repPos, 200, ".root");
+        m_fileNamePdf   = m_fileNameInput[input].Replace(repPos, 200, ".pdf");
+        m_fileNameCsv   = m_fileNameInput[input].Replace(repPos, 200, ".csv");
+    }
 
     return 0;
 }
 
-Int_t DataProcess::openDat()
+Int_t DataProcess::openDat(Int_t fileCounter)
 {
-    m_fileDat = fopen(m_fileNamePath + m_fileNameDat, "r");
-    cout << m_fileNameDat << " at " << m_fileNamePath << endl;
+    FILE* fileDat = fopen(m_fileNamePath + m_fileNameDat[fileCounter], "r");
+    cout << m_fileNameDat[fileCounter] << " at " << m_fileNamePath << endl;
 
-    if (m_fileDat == NULL)
+    if (fileDat == NULL)
     {
         cout << " ========================================== " << endl;
         cout << " == COULD NOT OPEN DAT, PLEASE CHECK IT === " << endl;
         cout << " ========================================== " << endl;
         return -1;
     }
+
+    m_filesDat.push_back(fileDat);
+
     return 0;
 }
 
 Int_t DataProcess::openCsv(TString fileCounter)
 {
-    TString fileNameTmp = m_fileNameInput;
+    TString fileNameTmp = m_fileNameCsv;
     UInt_t dotPos = fileNameTmp.Last('.');
 
     if (fileCounter.Sizeof() != 1)
     {
-        fileNameTmp.Replace(dotPos, 200, "[" + fileCounter + "].csv");
+        fileNameTmp.Replace(dotPos, 200, "-" + fileCounter + ".csv");
     }
 
     FILE* fileCsv = fopen(m_fileNamePath + fileNameTmp, "w");
@@ -230,7 +289,7 @@ Int_t DataProcess::openCsv(TString fileCounter)
     if (fileCsv == NULL)
     {
         cout << " ========================================== " << endl;
-        cout << " == COULD NOT OPEN CSV, PLEASE CHECK IT === " << endl;
+        cout << " = COULD NOT OPEN CSV, "<< fileCounter << " PLEASE CHECK IT == " << endl;
         cout << " ========================================== " << endl;
         return -1;
     }
@@ -251,6 +310,8 @@ Int_t DataProcess::openCsv(TString fileCounter)
 
 Int_t DataProcess::openRoot()
 {
+    UInt_t binCount = (UInt_t) ((16*6.1*m_timeWindow)/(25*10e3) + 0.5);
+    UInt_t binMax   = (UInt_t) ((25.0*10e3)/(16*6.1*binCount) + 0.5);
     //
     // Open file
     if ( m_process == procDat || m_process == procAll)
@@ -291,7 +352,7 @@ Int_t DataProcess::openRoot()
         m_ToAvsToT      = new TH2I("ToAvsToT", "ToA:ToT", 100, 0, 0, 100, 0, 0);
 
         m_histTrigger   = new TH1I("histTrigger", "Trigger", 1000, 0, 0);
-        m_histTriggerToA= new TH1I("histTriggerToA", "TriggerToA", 1000, 0, 0);
+        m_histTriggerToA= new TH1I("histTriggerToA", "TriggerToA", binCount, 0, binMax);
     }
     else if (m_process == procRoot)
     {
@@ -341,7 +402,11 @@ Int_t DataProcess::openRoot()
 
 void DataProcess::closeDat()
 {
-    fclose(m_fileDat);
+    for (UInt_t size = 0; size < m_filesDat.size(); size++)
+    {
+        fclose(m_filesDat.front());
+        m_filesDat.pop_front();
+    }
 }
 
 void DataProcess::closeCsv()
@@ -366,6 +431,43 @@ void DataProcess::closeRoot()
     m_fileRoot->Close();
 }
 
+Int_t DataProcess::skipHeader()
+{
+    TNamed *deviceID = new TNamed("deviceID", "device ID not set");
+    Int_t retVal;
+
+    UInt_t sphdr_id;
+    UInt_t sphdr_size;
+    retVal = fread( &sphdr_id, sizeof(UInt_t), 1, m_filesDat.back());
+    retVal = fread( &sphdr_size, sizeof(UInt_t), 1, m_filesDat.back());
+    cout << hex << sphdr_id << dec << endl;
+    cout << "header size " << sphdr_size << endl;
+    if (sphdr_size > 66304) sphdr_size = 66304;
+    UInt_t *fullheader = new UInt_t[sphdr_size/sizeof(UInt_t)];
+    if (fullheader == 0) { cout << "failed to allocate memory for header " << endl; return -1; }
+
+    retVal = fread ( fullheader+2, sizeof(UInt_t), sphdr_size/sizeof(UInt_t) -2, m_filesDat.back());
+    fullheader[0] = sphdr_id;
+    fullheader[1] = sphdr_size;
+
+    if (!m_bDevID)
+    {
+        // todo read in header via structure
+        // for now just use fixed offset to find deviceID
+        UInt_t waferno = (fullheader[132] >> 8) & 0xFFF;
+        UInt_t id_y = (fullheader[132] >> 4) & 0xF;
+        UInt_t id_x = (fullheader[132] >> 0) & 0xF;
+        Char_t devid[16];
+        sprintf(devid,"W%04d_%c%02d", waferno, (Char_t)id_x+64, id_y);  // make readable device identifier
+        deviceID->SetTitle(devid);
+        deviceID->Write();   // write deviceID to root file
+        m_bDevID = kTRUE;
+    }
+
+    return 0;
+}
+
+
 Int_t DataProcess::processDat()
 {
     //
@@ -388,7 +490,6 @@ Int_t DataProcess::processDat()
     UInt_t spidr_time;   // additional timestamp added by SPIDR
     UInt_t header;
     UInt_t subheader;
-    UInt_t trigCntr = 0;
     UInt_t trigtime_coarse;
     UInt_t prev_trigtime_coarse = 0 ;
     UInt_t trigtime_fine;
@@ -405,47 +506,24 @@ Int_t DataProcess::processDat()
     deque<ULong64_t>   ToAs;
 
     UInt_t sortSize = MAXHITS;
-    m_pixelCounter = 0;
-    m_trigCnt = 0;
     UInt_t sortThreshold = 2*sortSize;
 
     UInt_t backjumpcnt = 0;
 
-    TNamed *deviceID = new TNamed("deviceID", "device ID not set");
+    Int_t curInput = 0;
 
     //
-    // skip main header
-    UInt_t sphdr_id;
-    UInt_t sphdr_size;
-    retVal = fread( &sphdr_id, sizeof(UInt_t), 1, m_fileDat);
-    retVal = fread( &sphdr_size, sizeof(UInt_t), 1, m_fileDat);
-    cout << hex << sphdr_id << dec << endl;
-    cout << "header size " << sphdr_size << endl;
-    if (sphdr_size > 66304) sphdr_size = 66304;
-    UInt_t *fullheader = new UInt_t[sphdr_size/sizeof(UInt_t)];
-    if (fullheader == 0) { cout << "failed to allocate memory for header " << endl; return -1; }
-
-    retVal = fread ( fullheader+2, sizeof(UInt_t), sphdr_size/sizeof(UInt_t) -2, m_fileDat);
-    fullheader[0] = sphdr_id;
-    fullheader[1] = sphdr_size;
-    // todo read in header via structure
-    // for now just use fixed offset to find deviceID
-    UInt_t waferno = (fullheader[132] >> 8) & 0xFFF;
-    UInt_t id_y = (fullheader[132] >> 4) & 0xF;
-    UInt_t id_x = (fullheader[132] >> 0) & 0xF;
-    Char_t devid[16];
-    sprintf(devid,"W%04d_%c%02d", waferno, (Char_t)id_x+64, id_y);  // make readable device identifier
-    deviceID->SetTitle(devid);
-    deviceID->Write();   // write deviceID to root file
+    // skip main header and obtain device ID
+    skipHeader();
 
     //
     // Main loop over all entries
     // nentries is either 1000000000 or user defined
-    while (!feof(m_fileDat) && m_pixelCounter < m_maxEntries)
+    while (!feof(m_filesDat.back()) && m_pixelCounter < m_maxEntries)
     {
         //
         // read entries, write out each 10^5
-        retVal = fread( &pixdata, sizeof(ULong64_t), 1, m_fileDat);
+        retVal = fread( &pixdata, sizeof(ULong64_t), 1, m_filesDat.back());
         if (m_pixelCounter % 100000 == 0) cout << "Count " << m_pixelCounter << endl;
 
         //
@@ -525,7 +603,7 @@ Int_t DataProcess::processDat()
 
                     //
                     // check if the first trigger number is 1
-                    if (trigCntr == 0 && m_trigCnt != 1)
+                    if (! m_bFirstTrig && m_trigCnt != 1)
                     {
                         cout << "first trigger number in file is not 1" << endl;
                     } else
@@ -539,7 +617,7 @@ Int_t DataProcess::processDat()
                             }
                             else cout << "small backward time jump in trigger packet " << m_trigCnt << " (jump of " << prev_trigtime_coarse-trigtime_coarse << ")" << endl;
                         }
-                        trigCntr++;
+                        m_bFirstTrig = kTRUE;
                         m_trigTime = ((trigtime_global_ext + (ULong64_t) trigtime_coarse) << 12) | (ULong64_t) trigtime_fine; // save in ns
 
                         //
@@ -548,7 +626,6 @@ Int_t DataProcess::processDat()
                         m_histTrigger->Fill(m_trigTime);
 
                         prev_trigtime_coarse = trigtime_coarse;
-//                        cout << "trigger number " << trigcntr << " at  " << trigtime_coarse  << " " << trigtime_fine << endl;
                     }
                 } else if ( subheader == 0x4 )  // 32 lsb of timestamp
                 {
@@ -569,6 +646,15 @@ Int_t DataProcess::processDat()
                     else longtime = tmplongtime;
                 }
             }
+        }
+        else if (++curInput < m_numInputs)
+        {
+            m_nRaw = m_rawTree->GetEntries();
+            m_nTime = m_timeTree->GetEntries();
+            finishMsg(m_fileNameDat[curInput-1], "processing data", m_pixelCounter, curInput);
+            openDat(curInput);
+            skipHeader();
+            continue;
         }
 
         //
@@ -635,6 +721,7 @@ Int_t DataProcess::processDat()
                 m_nTime = m_timeTree->GetEntries();
                 cout << "===" << backjumpcnt << " backward time jumps found ==" << endl;
 
+                finishMsg(m_fileNameDat[curInput-1], "processing data", m_pixelCounter);
                 return 0;
             }
         }
@@ -643,6 +730,7 @@ Int_t DataProcess::processDat()
     m_nRaw = m_rawTree->GetEntries();
     m_nTime = m_timeTree->GetEntries();
     cout << "Not all pixel packets found" << endl;
+    finishMsg(m_fileNameDat[curInput], "processing data", m_pixelCounter);
     return 0;
 }
 
@@ -662,7 +750,7 @@ Int_t DataProcess::processRoot()
     // loop entries in timeTree
     while (entryTime < m_nTime || m_nTime == 0)
     {
-        if (entryTime % 50 == 0) cout << "Time entry " << entryTime << " out of " << m_nTime << " done!" << endl;
+        if (entryTime % 10000 == 0) cout << "Time entry " << entryTime << " out of " << m_nTime << " done!" << endl;
 
         if (m_nTime != 0)
         {
@@ -747,19 +835,27 @@ Int_t DataProcess::processRoot()
         entryTime++;
     }
 
+    finishMsg(m_fileNameRoot,"processing root", m_lineCounter, m_filesCsv.size());
     closeCsv();
     return 0;
 }
 
-void DataProcess::finishMsg(TString operation, UInt_t events, Int_t fileCounter)
+void DataProcess::finishMsg(TString fileName, TString operation, UInt_t events, Int_t fileCounter)
 {
     cout << "==============================================="  << endl;
-    cout << m_fileNameInput << endl;
+    cout << fileName << endl;
     cout << "==============================================="  << endl;
     cout << "====== "<< operation << " IS DONE !!!  ==========="  << endl;
     cout << "==============================================="  << endl;
     cout << "====  " << events << " events from total of " << m_nRaw << " selected!"  << endl;
-    cout << "====  " << fileCounter << " FILE(S) WRITTEN OUT!!!"  << endl;
+    if (operation == "processing data")
+    {
+        cout << "=========== " << fileCounter << " FILE(S) PROCESSED!!! ============"  << endl;
+    }
+    else
+    {
+        cout << "========== " << fileCounter << " FILE(S) WRITTEN OUT!!! ==========="  << endl;
+    }
     cout << "==============================================="  << endl;
 }
 
@@ -767,4 +863,12 @@ ULong64_t DataProcess::roundToNs(ULong64_t number)
 {
 //    return number;
     return (ULong64_t) (((ULong64_t) ((number * 6.1) + 0.5) / 1000.0) + 0.5);
+}
+
+void DataProcess::StopLoop()
+{
+    cout << "==============================================="  << endl;
+    cout << "======== LOOP SUCCESSFULLY STOPPED ============"  << endl;
+    cout << "==============================================="  << endl;
+    gSystem->ExitLoop();
 }
