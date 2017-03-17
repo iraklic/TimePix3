@@ -66,7 +66,8 @@ Int_t DataProcess::setOptions(Bool_t bCol,
                               Bool_t bTrigTime,
                               Bool_t bTrigToA,
                               Bool_t bNoTrigWindow,
-                              ULong64_t timeWindow,
+                              Float_t timeWindow,
+                              Float_t timeStart,
                               Bool_t singleFile,
                               Int_t linesPerFile)
 {
@@ -79,13 +80,14 @@ Int_t DataProcess::setOptions(Bool_t bCol,
     m_bTrigToA      = bTrigToA;
     m_bNoTrigWindow = bNoTrigWindow;
     m_bSingleFile   = singleFile;
-    m_timeWindow    = (ULong64_t) ((timeWindow*1000000.0/6.1) + 0.5);
+    m_timeWindow    = timeWindow;
+    m_timeStart     = timeStart;
     m_linesPerFile  = linesPerFile;
 
     if (timeWindow/1000 > 500)
     {
             cout << " ========================================== " << endl;
-            cout << " === " << timeWindow << " ms is very large winwdow!!!" << endl;
+            cout << " === " << timeWindow << " us is very large winwdow!!!" << endl;
             cout << " ========================================== " << endl;
             return -1;
     }
@@ -179,24 +181,31 @@ void DataProcess::plotStandardData()
     m_pixelMapToA->SetStats(kFALSE);
     m_pixelMapToA->Draw("colz");
 
-    canvas->cd(4);
-    m_ToAvsToT->Draw();
-
     canvas->cd(5);
+    gPad->SetRightMargin(0.15);
     m_histToT->Draw();
 
     canvas->cd(6);
+    gPad->SetRightMargin(0.15);
     m_histToA->Draw();
 
     if (m_trigCnt != 0)
     {
-        canvas->cd(7);
+        canvas->cd(4);
+        gPad->SetRightMargin(0.15);
         m_histTrigger->Draw();
 
         if ( m_bTrigToA )
         {
-            canvas->cd(8);
-            m_histTriggerToA->Draw();
+            canvas->cd(7);
+            gPad->SetRightMargin(0.15);
+            m_histSpectrum->Draw();
+
+//            canvas->cd(8);
+//            gPad->SetRightMargin(0.15);
+//            gPad->SetLogz();
+//            m_ToTvsToF->SetStats(kFALSE);
+//            m_ToTvsToF->Draw("colz");
         }
     }
 
@@ -310,8 +319,6 @@ Int_t DataProcess::openCsv(TString fileCounter)
 
 Int_t DataProcess::openRoot()
 {
-    UInt_t binCount = (UInt_t) ((16*6.1*m_timeWindow)/(25*10e3) + 0.5);
-    UInt_t binMax   = (UInt_t) ((25.0*10e3)/(16*6.1*binCount) + 0.5);
     //
     // Open file
     if ( m_process == procDat || m_process == procAll)
@@ -344,15 +351,15 @@ Int_t DataProcess::openRoot()
         //
         // create plots
         m_pixelMap      = new TH2I("pixelMap", "Col:Row", 256, -0.5, 255.5, 256, -0.5, 255.5);
-        m_pixelMapToT   = new TH2F("pixelMapToT", "Col:Row:ToT", 256, -0.5, 255.5, 256, -0.5, 255.5);
-        m_pixelMapToA   = new TH2F("pixelMapToA", "Col:Row:ToA", 256, -0.5, 255.5, 256, -0.5, 255.5);
+        m_pixelMapToT   = new TH2F("pixelMapToT", "Col:Row:{ToT}", 256, -0.5, 255.5, 256, -0.5, 255.5);
+        m_pixelMapToA   = new TH2F("pixelMapToA", "Col:Row:{ToA}", 256, -0.5, 255.5, 256, -0.5, 255.5);
 
-        m_histToT       = new TH1I("histToT", "ToT", 100, 0, 0);
+        m_histToT       = new TH1I("histToT", "ToT", 1200, 0, 20000);
         m_histToA       = new TH1I("histToA", "ToA", 100, 0, 0);
-        m_ToAvsToT      = new TH2I("ToAvsToT", "ToA:ToT", 100, 0, 0, 100, 0, 0);
+//        m_ToAvsToT      = new TH2F("ToAvsToT", "ToA:ToT", 1200, 0, 20000, 100, 0, 0);
 
         m_histTrigger   = new TH1I("histTrigger", "Trigger", 1000, 0, 0);
-        m_histTriggerToA= new TH1I("histTriggerToA", "TriggerToA", binCount, 0, binMax);
+//        m_histTriggerToA= new TH1F("histTriggerToA", "TriggerToA", 100000, 0, 0);
     }
     else if (m_process == procRoot)
     {
@@ -389,10 +396,10 @@ Int_t DataProcess::openRoot()
 
         m_histToT       = (TH1I *) m_fileRoot->Get("histToT");
         m_histToA       = (TH1I *) m_fileRoot->Get("histToA");
-        m_ToAvsToT      = (TH2I *) m_fileRoot->Get("ToAvsToT");
+//        m_ToAvsToT      = (TH2F *) m_fileRoot->Get("ToAvsToT");
 
         m_histTrigger   = (TH1I *) m_fileRoot->Get("histTrigger");
-        m_histTriggerToA= new TH1I("histTriggerToA", "TriggerToA", binCount, 0, binMax);
+//        m_histTriggerToA= new TH1F("histTriggerToA", "TriggerToA", 100000, 0, 0);
     }
 
     m_fileRoot->cd();
@@ -698,7 +705,7 @@ Int_t DataProcess::processDat()
                 m_pixelMapToT->Fill(m_col,m_row,m_ToT);
                 m_pixelMapToA->Fill(m_col,m_row,m_ToA);
 
-                m_ToAvsToT->Fill(m_ToA,m_ToT);
+//                m_ToAvsToT->Fill(m_ToA,m_ToT);
 
                 m_histToT->Fill(m_ToT);
                 m_histToA->Fill(m_ToA);
@@ -742,9 +749,38 @@ Int_t DataProcess::processRoot()
     UInt_t entryTime = 0;
     ULong64_t tmpTrigTime = 0;
 
+    ULong64_t lfTimeWindow = (ULong64_t) ((m_timeWindow*1000000.0/6.1) + 0.5);
+    ULong64_t lfTimeStart  = (ULong64_t) ((m_timeStart *1000000.0/6.1) + 0.5);
+
+    Int_t binCount;
+    Float_t binMin;
+    Float_t binMax;
+
+    Float_t ToF;
+
     m_nRaw = m_rawTree->GetEntries();
     m_nTime = m_timeTree->GetEntries();
+
     if (m_nTime == 0) m_bTrig = m_bTrigTime = m_bTrigToA = kFALSE;
+
+    if (m_bTrigToA)
+    {
+        if (m_bNoTrigWindow)
+        {
+            binCount = 100000;
+            binMin   = 0;
+            binMax   = 0;
+        }
+        else
+        {
+            binCount = (UInt_t) (640 * m_timeWindow);
+            binMin   = m_timeStart;
+            binMax   = ((Float_t) binCount/16000)*25 + m_timeStart;
+        }
+
+        m_histSpectrum = new TH1F("histSpectrum", "ToF (ToA - trigTime)", binCount, binMin, binMax);
+        m_ToTvsToF     = new TH2F("mapToT_ToF", "ToT vs ToF", binCount, binMin, binMax, 400, 0, 10);
+    }
 
     //
     // loop entries in timeTree
@@ -759,14 +795,14 @@ Int_t DataProcess::processRoot()
                 m_timeTree->GetEntry(entryTime + 1);
                 tmpTrigTime = m_trigTime;
                 m_timeTree->GetEntry(entryTime);
-                m_timeWindow = tmpTrigTime - m_trigTime;
+                lfTimeWindow = tmpTrigTime - m_trigTime;
             }
             else
             {
                 m_timeTree->GetEntry(entryTime);
             }
 //            cout << "========================" << endl;
-//            cout << "Time window is " << m_timeWindow << endl;
+//            cout << "Time window is " << m_lfTimeWindow << endl;
         }
 
         //
@@ -778,7 +814,7 @@ Int_t DataProcess::processRoot()
 
             //
             // dump all useless data
-            if ( m_nTime!= 0 && m_ToA < m_trigTime)
+            if ( m_nTime!= 0 && m_ToA < m_trigTime + lfTimeStart)
             {
                 currChunk = entryRaw;
                 continue;
@@ -786,7 +822,7 @@ Int_t DataProcess::processRoot()
 
             //
             // stop rawTree loop if further away then trigger+window
-            if ( m_nTime!= 0 && m_ToA > (m_trigTime + m_timeWindow))
+            if ( m_nTime!= 0 && m_ToA > (m_trigTime +  lfTimeStart + lfTimeWindow))
             {
 //                cout << "useless entries " << currChunk - uselessChunk << endl;
 //                cout << "entries in chunk " << entryRaw - currChunk << endl;
@@ -822,7 +858,13 @@ Int_t DataProcess::processRoot()
                 if (m_bToT)     fprintf(m_filesCsv.back(), "%u\t",  m_ToT);
                 if (m_bTrigToA) fprintf(m_filesCsv.back(), "%llu\t",m_ToA - m_trigTime);
 
-                if (m_bTrigToA) m_histTriggerToA->Fill(m_ToA - m_trigTime);
+//                if (m_bTrigToA) m_histTriggerToA->Fill(m_ToA - m_trigTime);
+                if (m_bTrigToA)
+                {
+                    ToF = ((Float_t) ( m_ToA - m_trigTime)/1e6 )*6.1;
+                    m_histSpectrum->Fill( ToF );
+                    m_ToTvsToF->Fill(ToF, ((Float_t) m_ToT)/1e3 );
+                }
 
                 fprintf(m_filesCsv.back(), "\n");
                 m_lineCounter++;

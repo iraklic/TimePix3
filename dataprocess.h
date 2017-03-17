@@ -40,7 +40,8 @@ public:
                       Bool_t bTrigTime = kTRUE,
                       Bool_t bTrigToA = kTRUE,
                       Bool_t bNoTrigWindow = kFALSE,
-                      ULong64_t timeWindow = 6000000,
+                      Float_t timeWindow = 40,
+                      Float_t timeStart = 0,
                       Bool_t singleFile = kFALSE,
                       Int_t  linesPerFile = 100000);
     Int_t process();
@@ -89,8 +90,10 @@ private:
     Bool_t m_bNoTrigWindow;
     Bool_t m_bSingleFile;
 
-    ULong64_t   m_timeWindow;
-    UInt_t      m_linesPerFile;
+    Float_t  m_timeWindow;
+    Float_t  m_timeStart;
+
+    UInt_t  m_linesPerFile;
 
     //
     // file names
@@ -124,10 +127,13 @@ private:
 
     TH1I* m_histToT;
     TH1I* m_histToA;
-    TH2I* m_ToAvsToT;
+//    TH2I* m_ToAvsToT;
 
     TH1I* m_histTrigger;
-    TH1I* m_histTriggerToA;
+//    TH1I* m_histTriggerToA;
+
+    TH1F* m_histSpectrum;
+    TH2F* m_ToTvsToF;
 
     //
     // single pixel data

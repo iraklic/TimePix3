@@ -40,8 +40,9 @@ class TextMargin : public TGHorizontalFrame {
 	TGLabel * label;
 
 	public:
-	TextMargin(const TGWindow *p, const char *name) : TGHorizontalFrame(p) {
-		fEntry = new TGNumberEntry(this, 0, 6, -1, TGNumberFormat::kNESInteger);
+        TextMargin(const TGWindow *p, const char *name, TGNumberFormat::EStyle style = TGNumberFormat::kNESInteger) : TGHorizontalFrame(p)
+        {
+                fEntry = new TGNumberEntry(this, 0, 6, -1, style);
 		AddFrame(fEntry, new TGLayoutHints(kLHintsLeft));
 		label = new TGLabel(this, name);
 		AddFrame(label, new TGLayoutHints(kLHintsLeft, 10));
@@ -83,7 +84,8 @@ public:
 	bool bSingleFile;
 	bool bNoTrigWindow;
 
-	int timeWindow;
+        float timeWindow;
+        float timeStart;
 	int linesPerFile;
 
 	DRGui();
@@ -91,7 +93,8 @@ public:
 	void RunReducer();
         void StopReducer();
 	void ApplyCutsHits(char *);
-	void ApplyCutsTime(char *);
+        void ApplyCutsWindow(char *);
+        void ApplyCutsStart(char *);
 	void ApplyCutsLines(char *);
 
 	void SelectCol(Bool_t);
@@ -138,6 +141,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 
 	linesPerFile = 100000;
         timeWindow = 40;
+        timeStart = 0;
 
         m_infoMsg = "Select File";
 
@@ -252,16 +256,20 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	TGGroupFrame * cuts = new TGGroupFrame(controls, "Cuts");
 	cuts->SetTitlePos(TGGroupFrame::kCenter);
 
-	TextMargin * timeW = new TextMargin(cuts, "Time Window (micro s)");
-	timeW->SetEntry(40);
+        TextMargin * timeW = new TextMargin(cuts, "Time Window Size (micro s)", TGNumberFormat::kNESRealOne);
+        timeW->SetEntry(40.0);
+        TextMargin * timeS = new TextMargin(cuts, "Time Window Start (micro s)", TGNumberFormat::kNESRealOne);
+        timeS->SetEntry(0.0);
 	TGCheckButton * noTrigWindow = new TGCheckButton(cuts, "All Data");
 
-	cuts->AddFrame(timeW, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
+        cuts->AddFrame(timeS, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
+        cuts->AddFrame(timeW, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
 	cuts->AddFrame(noTrigWindow, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
 
 	noTrigWindow->Connect("Toggled(Bool_t)", "TextMargin", timeW, "SetEnabled(Bool_t)");
 	noTrigWindow->Connect("Toggled(Bool_t)", "DRGui", this, "SelectNoTrigWindow(Bool_t)");
-	timeW->GetEntry()->Connect("TextChanged(char*)", "DRGui", this, "ApplyCutsTime(char*)");
+        timeW->GetEntry()->Connect("TextChanged(char*)", "DRGui", this, "ApplyCutsWindow(char*)");
+        timeS->GetEntry()->Connect("TextChanged(char*)", "DRGui", this, "ApplyCutsStart(char*)");
 
 	controls->AddFrame(cuts, new TGLayoutHints(kLHintsExpandX));
 
@@ -270,7 +278,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	outControl->SetTitlePos(TGGroupFrame::kCenter);
 
 	TGCheckButton * singleFile = new TGCheckButton(outControl, "Single File");
-	TextMargin * nLines = new TextMargin(outControl, "Lines per File");
+        TextMargin * nLines = new TextMargin(outControl, "Lines per File");
 
 	outControl->AddFrame(singleFile, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
 	outControl->AddFrame(nLines, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
@@ -311,7 +319,8 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	MapRaised();
 }
 
-void DRGui::ApplyCutsTime(char * val) { timeWindow = atoi(val); }
+void DRGui::ApplyCutsWindow(char * val){ timeWindow = atof(val); }
+void DRGui::ApplyCutsStart(char * val) { timeStart  = atof(val); }
 void DRGui::ApplyCutsLines(char * val) { linesPerFile = atoi(val); }
 
 void DRGui::SelectCol(Bool_t check)      { bCol = check; }
@@ -390,7 +399,7 @@ void DRGui::RunReducer()
                 processor->setName(tmpString);
             }
         }
-        processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bNoTrigWindow, timeWindow, bSingleFile, linesPerFile);
+        processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
         processor->process();
 }
 
