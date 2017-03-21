@@ -98,6 +98,7 @@ Int_t DataProcess::setOptions(Bool_t bCol,
 Int_t DataProcess::process()
 {
     m_time.Start();
+    m_pixelCounter = 0;
 
     //
     // create filenames
@@ -409,16 +410,20 @@ Int_t DataProcess::openRoot()
 
 void DataProcess::closeDat()
 {
-    for (UInt_t size = 0; size < m_filesDat.size(); size++)
+    while (m_filesDat.size() != 0)
+//    for (UInt_t size = 0; size < m_filesDat.size(); size++)
     {
         fclose(m_filesDat.front());
         m_filesDat.pop_front();
+        m_fileNameInput.pop_front();
+        m_fileNameDat.pop_front();
     }
 }
 
 void DataProcess::closeCsv()
 {
-    for (UInt_t size = 0; size < m_filesCsv.size(); size++)
+    while (m_filesCsv.size() != 0)
+//    for (UInt_t size = 0; size < m_filesCsv.size(); size++)
     {
         fclose(m_filesCsv.front());
         m_filesCsv.pop_front();
