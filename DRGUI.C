@@ -147,15 +147,15 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 
 //	Controls on right
 	TGVerticalFrame * controls = new TGVerticalFrame(this);
-	AddFrame(controls, new TGLayoutHints(kLHintsRight | kLHintsExpandY, 5, 5, 5, 5));
+        AddFrame(controls, new TGLayoutHints(kLHintsRight | kLHintsNormal | kLHintsExpandY, 5, 5, 5, 5));
 
 //	VARIABLE and PROCESSES ON LEFT
 	TGVerticalFrame * variables = new TGVerticalFrame(this);
-	AddFrame(variables, new TGLayoutHints(kLHintsLeft | kLHintsExpandY, 5, 5, 5, 5));
+        AddFrame(variables, new TGLayoutHints(kLHintsLeft | kLHintsNormal | kLHintsExpandY, 5,5,5,5));
 
 //	Separator
 	TGVertical3DLine *separator = new TGVertical3DLine(this);
-	AddFrame(separator, new TGLayoutHints(kLHintsRight | kLHintsExpandY));
+        AddFrame(separator, new TGLayoutHints(kLHintsRight | kLHintsExpandY));
 
 	TGVertical3DLine *separator1 = new TGVertical3DLine(this);
 	AddFrame(separator1, new TGLayoutHints(kLHintsExpandY));
@@ -186,8 +186,8 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         rootFile = new TGTextEdit(contents, 600,200, m_infoMsg);
         //rootFile->SetText();
 	bButton = new TGTextButton(contents, "Browse Files");
-        contents->AddFrame(rootFile, new TGLayoutHints(kLHintsLeft | kLHintsExpandX, 5, 5, 5, 5));
-	contents->AddFrame(bButton, new TGLayoutHints(kLHintsRight | kLHintsExpandX, 5, 5, 5, 5));
+        contents->AddFrame(rootFile, new TGLayoutHints(kLHintsLeft | kLHintsExpandX | kLHintsExpandY, 5, 5, 5, 5));
+        contents->AddFrame(bButton, new TGLayoutHints(kLHintsRight | kLHintsExpandX, 10, 10, 10, 10));
         contents->AddFrame(fButton, new TGLayoutHints(kLHintsBottom| kLHintsExpandX | kLHintsExpandY, 5, 5, 5, 5));
         contents->AddFrame(sButton, new TGLayoutHints(kLHintsBottom| kLHintsExpandX, 5, 5, 5, 5));
 
@@ -228,7 +228,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         trigTime->Connect("Toggled(Bool_t)", "DRGui", this, "SelecTtrigTime(Bool_t)");
         trigToA ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectTrigToA(Bool_t)");
 
-	variables->AddFrame(varsGroup, new TGLayoutHints(kLHintsExpandX));
+        variables->AddFrame(varsGroup, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 
 //      PROCESSES
         TGVButtonGroup * procGroup = new TGVButtonGroup(variables, "Process");
@@ -250,7 +250,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         root    ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectRoot(Bool_t)");
 
         procGroup->SetRadioButtonExclusive(kTRUE);
-        variables->AddFrame(procGroup, new TGLayoutHints(kLHintsExpandX));
+        variables->AddFrame(procGroup, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 
 //	CUTS
 	TGGroupFrame * cuts = new TGGroupFrame(controls, "Cuts");
@@ -382,6 +382,8 @@ void DRGui::RunReducer()
         {
             processor->setName(m_inputNames, inputNumber);
             processor->setProcess(ptProcess);
+            processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
+            processor->process();
         }
         else
         {
@@ -397,10 +399,10 @@ void DRGui::RunReducer()
                     processor->setProcess(ptProcess);
                 }
                 processor->setName(tmpString);
+                processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
+                processor->process();
             }
         }
-        processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
-        processor->process();
 }
 
 void DRGui::ProcessNames()
@@ -415,10 +417,10 @@ void DRGui::ProcessNames()
     while( (lineLength = inputFileNames->GetLineLength(lineNumber)) != -1)
     {
         pos = TGLongPosition(0,lineNumber++);
-        fileName = inputFileNames->GetLine(pos,lineLength);
 
         if (fileName.EndsWith(".root") || fileName.EndsWith(".dat"))
         {
+            cout << fileName << " " << inputNumber << endl;
             m_inputNames[inputNumber++] = fileName;
         }
         else
