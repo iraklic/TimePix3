@@ -417,6 +417,7 @@ void DRGui::ProcessNames()
     while( (lineLength = inputFileNames->GetLineLength(lineNumber)) != -1)
     {
         pos = TGLongPosition(0,lineNumber++);
+        fileName = inputFileNames->GetLine(pos,lineLength);
 
         if (fileName.EndsWith(".root") || fileName.EndsWith(".dat"))
         {
