@@ -306,13 +306,13 @@ Int_t DataProcess::openCsv(TString fileCounter)
 
     m_filesCsv.push_back(fileCsv);
 
-    if (m_bTrig)    fprintf(m_filesCsv.back(), "#TrigId\t");
-    if (m_bTrigTime)fprintf(m_filesCsv.back(), "#TrigTime\t");
-    if (m_bCol)     fprintf(m_filesCsv.back(), "#Col\t");
-    if (m_bRow)     fprintf(m_filesCsv.back(), "#Row\t");
-    if (m_bToA)     fprintf(m_filesCsv.back(), "#ToA\t");
-    if (m_bToT)     fprintf(m_filesCsv.back(), "#ToT\t");
-    if (m_bTrigToA) fprintf(m_filesCsv.back(), "#Trig-ToA\t");
+    if (m_bTrig)    fprintf(m_filesCsv.back(), "#TrigId, ");
+    if (m_bTrigTime)fprintf(m_filesCsv.back(), "#TrigTime, ");
+    if (m_bCol)     fprintf(m_filesCsv.back(), "#Col, ");
+    if (m_bRow)     fprintf(m_filesCsv.back(), "#Row, ");
+    if (m_bToA)     fprintf(m_filesCsv.back(), "#ToA, ");
+    if (m_bToT)     fprintf(m_filesCsv.back(), "#ToT, ");
+    if (m_bTrigToA) fprintf(m_filesCsv.back(), "#Trig-ToA, ");
     fprintf(m_filesCsv.back(), "\n");
 
     return 0;
@@ -749,13 +749,12 @@ Int_t DataProcess::processDat()
 Int_t DataProcess::processRoot()
 {
     m_lineCounter = 0;
-    UInt_t uselessChunk = 0;
     UInt_t currChunk = 0;
     UInt_t entryTime = 0;
     ULong64_t tmpTrigTime = 0;
 
-    ULong64_t lfTimeWindow = (ULong64_t) ((m_timeWindow*1000000.0/6.1) + 0.5);
-    ULong64_t lfTimeStart  = (ULong64_t) ((m_timeStart *1000000.0/6.1) + 0.5);
+    ULong64_t lfTimeWindow = (ULong64_t) ((m_timeWindow*4096000.0/25.0) + 0.5);
+    ULong64_t lfTimeStart  = (ULong64_t) ((m_timeStart *4096000.0/25.0) + 0.5);
 
     Int_t binCount;
     Float_t binMin;
@@ -765,6 +764,8 @@ Int_t DataProcess::processRoot()
 
     m_nRaw = m_rawTree->GetEntries();
     m_nTime = m_timeTree->GetEntries();
+
+    if (!m_bCol && !m_bRow && !m_bToA && !m_bToT && !m_bTrigToA) m_nRaw = 0;
 
     if (m_nTime == 0) m_bTrig = m_bTrigTime = m_bTrigToA = kFALSE;
 
@@ -805,6 +806,22 @@ Int_t DataProcess::processRoot()
             else
             {
                 m_timeTree->GetEntry(entryTime);
+            }
+
+            if (m_nRaw == 0)
+            {
+                //
+                // single file creation
+                if (m_filesCsv.size() == 0)
+                {
+                    if (openCsv()) return -1;
+                }
+                //
+                // write trigger data if rawtree is empty
+                if (m_bTrig)    fprintf(m_filesCsv.back(), "%u, ",  m_trigCnt);
+                if (m_bTrigTime)fprintf(m_filesCsv.back(), "%llu, ",m_trigTime);
+
+                fprintf(m_filesCsv.back(), "\n");
             }
 //            cout << "========================" << endl;
 //            cout << "Time window is " << m_lfTimeWindow << endl;
@@ -855,18 +872,19 @@ Int_t DataProcess::processRoot()
 
                 //
                 // write actual data
-                if (m_bTrig)    fprintf(m_filesCsv.back(), "%u\t",  m_trigCnt);
-                if (m_bTrigTime)fprintf(m_filesCsv.back(), "%llu\t",m_trigTime);
-                if (m_bCol)     fprintf(m_filesCsv.back(), "%u\t",  m_col);
-                if (m_bRow)     fprintf(m_filesCsv.back(), "%u\t",  m_row);
-                if (m_bToA)     fprintf(m_filesCsv.back(), "%llu\t",m_ToA);
-                if (m_bToT)     fprintf(m_filesCsv.back(), "%u\t",  m_ToT);
-                if (m_bTrigToA) fprintf(m_filesCsv.back(), "%llu\t",m_ToA - m_trigTime);
+                if (m_bTrig)    fprintf(m_filesCsv.back(), "%u, ",  m_trigCnt);
+                if (m_bTrigTime)fprintf(m_filesCsv.back(), "%llu, ",m_trigTime);
+                if (m_bCol)     fprintf(m_filesCsv.back(), "%u, ",  m_col);
+                if (m_bRow)     fprintf(m_filesCsv.back(), "%u, ",  m_row);
+                if (m_bToA)     fprintf(m_filesCsv.back(), "%llu, ",m_ToA);
+                if (m_bToT)     fprintf(m_filesCsv.back(), "%u, ",  m_ToT);
+                if (m_bTrigToA) fprintf(m_filesCsv.back(), "%llu, ",m_ToA - m_trigTime);
 
 //                if (m_bTrigToA) m_histTriggerToA->Fill(m_ToA - m_trigTime);
                 if (m_bTrigToA)
                 {
-                    ToF = ((Float_t) ( m_ToA - m_trigTime)/1e6 )*6.1;
+//                    ToF = ((Float_t) ( m_ToA - m_trigTime)/1e6 )*6.1;
+                    ToF = ((Float_t) ( m_ToA - m_trigTime)/1e3 )*(25.0/4096);
                     m_histSpectrum->Fill( ToF );
                     m_ToTvsToF->Fill(ToF, ((Float_t) m_ToT)/1e3 );
                 }
@@ -909,7 +927,7 @@ void DataProcess::finishMsg(TString fileName, TString operation, UInt_t events, 
 ULong64_t DataProcess::roundToNs(ULong64_t number)
 {
 //    return number;
-    return (ULong64_t) (((ULong64_t) ((number * 6.1) + 0.5) / 1000.0) + 0.5);
+    return (ULong64_t) ((number * (25.0/4096)) + 0.5);
 }
 
 void DataProcess::StopLoop()
