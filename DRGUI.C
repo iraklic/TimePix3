@@ -30,6 +30,7 @@ void DRGUI() {
 
 const char * fileTypes[] = {
         "data files", "*.dat",
+        "SoPhy files", "*.tpx3",
         "ROOT files", "*.root",
 	0, 0
 };
@@ -374,35 +375,35 @@ void DRGui::Browse()
 
 void DRGui::RunReducer()
 {
-        ProcessNames();
-        TString tmpString;
+    ProcessNames();
+    TString tmpString;
 
-        DataProcess* processor = new DataProcess();
-        if (bCombineInput)
+    DataProcess* processor = new DataProcess();
+    if (bCombineInput)
+    {
+        processor->setName(m_inputNames, inputNumber);
+        processor->setProcess(ptProcess);
+        processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
+        processor->process();
+    }
+    else
+    {
+        for (int i = 0; i <  inputNumber; i++)
         {
-            processor->setName(m_inputNames, inputNumber);
-            processor->setProcess(ptProcess);
+            tmpString = m_inputNames[i].GetString();
+            if (tmpString.EndsWith(".root"))
+            {
+                processor->setProcess(ProcType::procRoot);
+            }
+            else if (tmpString.EndsWith(".dat") || tmpString.EndsWith(".tpx3"))
+            {
+                processor->setProcess(ptProcess);
+            }
+            processor->setName(tmpString);
             processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
             processor->process();
         }
-        else
-        {
-            for (int i = 0; i <  inputNumber; i++)
-            {
-                tmpString = m_inputNames[i].GetString();
-                if (tmpString.EndsWith(".root"))
-                {
-                    processor->setProcess(ProcType::procRoot);
-                }
-                else if (tmpString.EndsWith(".dat"))
-                {
-                    processor->setProcess(ptProcess);
-                }
-                processor->setName(tmpString);
-                processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
-                processor->process();
-            }
-        }
+    }
 }
 
 void DRGui::ProcessNames()
@@ -419,7 +420,7 @@ void DRGui::ProcessNames()
         pos = TGLongPosition(0,lineNumber++);
         fileName = inputFileNames->GetLine(pos,lineLength);
 
-        if (fileName.EndsWith(".root") || fileName.EndsWith(".dat"))
+        if (fileName.EndsWith(".root") || fileName.EndsWith(".dat") || fileName.EndsWith(".tpx3"))
         {
             cout << fileName << " " << inputNumber << endl;
             m_inputNames[inputNumber++] = fileName;

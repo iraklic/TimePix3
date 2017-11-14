@@ -24,6 +24,12 @@ enum ProcType
     procAll     = 2
 };
 
+enum DataType
+{
+    dtDat = 0,
+    dtTpx = 1
+};
+
 class DataProcess
 {
 public:
@@ -97,6 +103,7 @@ private:
 
     //
     // file names
+    DataType        m_type;
     Int_t           m_numInputs;
     deque<TString > m_fileNameInput;
     TString         m_fileNamePath;

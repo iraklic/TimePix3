@@ -243,6 +243,11 @@ Int_t DataProcess::processFileNames()
     }
 
     tmpString = m_fileNameInput[0];
+    if (tmpString.EndsWith(".dat"))
+        m_type = dtDat;
+    else if (tmpString.EndsWith(".tpx3"))
+        m_type = dtTpx;
+
     UInt_t slash = tmpString.Last('/');
     m_fileNamePath = tmpString(0,slash+1);
 
@@ -484,6 +489,7 @@ Int_t DataProcess::processDat()
 {
     //
     // define all locally needed variables
+    ULong64_t headdata = 0;
     ULong64_t pixdata;
     ULong64_t longtime = 0;
     ULong64_t longtime_lsb = 0;
@@ -526,7 +532,8 @@ Int_t DataProcess::processDat()
 
     //
     // skip main header and obtain device ID
-    skipHeader();
+    if (m_type == dtDat)
+        skipHeader();
 
     //
     // Main loop over all entries
@@ -665,7 +672,8 @@ Int_t DataProcess::processDat()
             m_nTime = m_timeTree->GetEntries();
             finishMsg(m_fileNameDat[curInput-1], "processing data", m_pixelCounter, curInput);
             openDat(curInput);
-            skipHeader();
+            if (m_type == dtDat)
+                skipHeader();
             continue;
         }
 
