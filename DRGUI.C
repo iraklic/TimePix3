@@ -118,7 +118,7 @@ public:
 
 private:
         TString m_infoMsg;
-        TObjString m_inputNames[16];
+        TObjString m_inputNames[100];
 };
 
 DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {

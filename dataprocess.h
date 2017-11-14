@@ -108,6 +108,8 @@ private:
     //
     // files
     deque<FILE* >   m_filesDat;
+    TFile*          m_fileRootLT;
+    TFile*          m_fileRootLTRaw;
     TFile*          m_fileRoot;
     deque<FILE* >   m_filesCsv;
 
@@ -134,6 +136,9 @@ private:
 
     TH1F* m_histSpectrum;
     TH2F* m_ToTvsToF;
+
+    TH1F* m_histSpectrum_cor;
+    TH2F* m_ToTvsToF_cor;
 
     //
     // single pixel data

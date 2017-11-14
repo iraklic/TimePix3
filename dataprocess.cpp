@@ -324,12 +324,14 @@ Int_t DataProcess::openRoot()
     // Open file
     if ( m_process == procDat || m_process == procAll)
     {
-        m_fileRoot = new TFile(m_fileNamePath + m_fileNameRoot, "RECREATE");
+        m_fileRootLTRaw = new TFile(m_fileNamePath + "coin16lookupTable.root", "READ");
+        m_fileRootLT    = new TFile(m_fileNamePath + "coin16lookupTable_cent.root", "READ");
+        m_fileRoot      = new TFile(m_fileNamePath + m_fileNameRoot, "RECREATE");
         cout << m_fileNameRoot << " at " << m_fileNamePath << endl;
 
         //
         // check if file opened correctly
-        if (m_fileRoot == NULL)
+        if (m_fileRoot == NULL || m_fileRootLT == NULL)
         {
             cout << " ========================================== " << endl;
             cout << " == COULD NOT OPEN ROOT, PLEASE CHECK IT == " << endl;
@@ -355,7 +357,7 @@ Int_t DataProcess::openRoot()
         m_pixelMapToT   = new TH2F("pixelMapToT", "Col:Row:{ToT}", 256, -0.5, 255.5, 256, -0.5, 255.5);
         m_pixelMapToA   = new TH2F("pixelMapToA", "Col:Row:{ToA}", 256, -0.5, 255.5, 256, -0.5, 255.5);
 
-        m_histToT       = new TH1I("histToT", "ToT", 1200, 0, 20000);
+        m_histToT       = new TH1I("histToT", "ToT", 600, 0, 15000);
         m_histToA       = new TH1I("histToA", "ToA", 100, 0, 0);
 //        m_ToAvsToT      = new TH2F("ToAvsToT", "ToA:ToT", 1200, 0, 20000, 100, 0, 0);
 
@@ -364,12 +366,14 @@ Int_t DataProcess::openRoot()
     }
     else if (m_process == procRoot)
     {
-        m_fileRoot = new TFile(m_fileNamePath + m_fileNameRoot, "UPDATE");
+        m_fileRootLTRaw = new TFile(m_fileNamePath + "coin16lookupTable.root", "READ");
+        m_fileRootLT    = new TFile(m_fileNamePath + "coin16lookupTable_cent.root", "READ");
+        m_fileRoot   = new TFile(m_fileNamePath + m_fileNameRoot, "UPDATE");
         cout << m_fileNameRoot << " at " << m_fileNamePath << endl;
 
         //
         // check if file opened correctly
-        if (m_fileRoot == NULL)
+        if (m_fileRoot == NULL || m_fileRootLT == NULL)
         {
             cout << " ========================================== " << endl;
             cout << " == COULD NOT OPEN ROOT, PLEASE CHECK IT == " << endl;
@@ -531,7 +535,7 @@ Int_t DataProcess::processDat()
     //
     // Main loop over all entries
     // nentries is either 1000000000 or user defined
-    while (!feof(m_filesDat.back()) && m_pixelCounter < m_maxEntries)
+    while (!feof(m_filesDat.back()))// && m_pixelCounter < m_maxEntries)
     {
         //
         // read entries, write out each 10^5
@@ -760,10 +764,18 @@ Int_t DataProcess::processRoot()
     Float_t binMin;
     Float_t binMax;
 
-    Float_t ToF;
+    Float_t ToF,ToT;
 
     m_nRaw = m_rawTree->GetEntries();
     m_nTime = m_timeTree->GetEntries();
+
+    Double_t Dif;
+
+
+    TTree *lookupTableRaw = (TTree * ) m_fileRootLTRaw->Get("lookupTable");
+    lookupTableRaw->SetBranchAddress("Dif", &Dif);
+    TTree *lookupTable = (TTree * ) m_fileRootLT->Get("lookupTable");
+    lookupTable->SetBranchAddress("Dif", &Dif);
 
     if (!m_bCol && !m_bRow && !m_bToA && !m_bToT && !m_bTrigToA) m_nRaw = 0;
 
@@ -786,6 +798,9 @@ Int_t DataProcess::processRoot()
 
         m_histSpectrum = new TH1F("histSpectrum", "ToF (ToA - trigTime)", binCount, binMin, binMax);
         m_ToTvsToF     = new TH2F("mapToT_ToF", "ToT vs ToF", binCount, binMin, binMax, 400, 0, 10);
+
+        m_histSpectrum_cor = new TH1F("histSpectrum_cor", "ToF (ToA - trigTime) corrected", binCount, binMin, binMax);
+        m_ToTvsToF_cor     = new TH2F("mapToT_ToF_cor", "ToT vs ToF corrected", binCount, binMin, binMax, 400, 0, 10);
     }
 
     //
@@ -886,7 +901,15 @@ Int_t DataProcess::processRoot()
 //                    ToF = ((Float_t) ( m_ToA - m_trigTime)/1e6 )*6.1;
                     ToF = ((Float_t) ( m_ToA - m_trigTime)/1e3 )*(25.0/4096);
                     m_histSpectrum->Fill( ToF );
-                    m_ToTvsToF->Fill(ToF, ((Float_t) m_ToT)/1e3 );
+                    ToT = ((Float_t) m_ToT)/1000.0;
+                    m_ToTvsToF->Fill(ToF, (m_ToT/25)*0.025);
+
+                    if (m_ToT > 700 && m_ToT <= 3500)
+                        lookupTable->GetEntry(m_ToT/25);
+                    else
+                        lookupTableRaw->GetEntry(m_ToT/25);
+                    m_histSpectrum_cor->Fill( ToF+Dif );
+                    m_ToTvsToF_cor->Fill(ToF+Dif, (m_ToT/25)*0.025);
                 }
 
                 fprintf(m_filesCsv.back(), "\n");
