@@ -13,7 +13,7 @@
 #include "TH1.h"
 #include "TH2.h"
 
-#define MAXHITS 100000       // minimal value for sorting 65k
+#define MAXHITS 65536       // minimal value for sorting 65536
 
 using namespace std;
 
@@ -26,14 +26,18 @@ enum ProcType
 
 enum DataType
 {
-    dtDat = 0,
-    dtTpx = 1
+    dtDat  = 0,
+    dtTpx  = 1,
+    dtCent = 2,
+
+    dtStandard = 3
 };
 
 class DataProcess
 {
 public:
     DataProcess(TString fileNameInput = "");
+    ~DataProcess();
     void setName(TString fileNameInput);
     void setName(TObjString *fileNameInput, Int_t size);
     void setProcess(ProcType process);
@@ -45,6 +49,7 @@ public:
                       Bool_t bTrig = kTRUE,
                       Bool_t bTrigTime = kTRUE,
                       Bool_t bTrigToA = kTRUE,
+                      Bool_t bCentroid = kFALSE,
                       Bool_t bNoTrigWindow = kFALSE,
                       Float_t timeWindow = 40,
                       Float_t timeStart = 0,
@@ -59,9 +64,10 @@ private:
     ULong64_t roundToNs(ULong64_t number);
 
     Int_t openDat(Int_t fileCounter = 0);
-    Int_t openCsv(TString fileCounter = "");
+    Int_t openCsv(DataType type = dtStandard, TString fileCounter = "");
     Int_t openRoot();
 
+    void findCluster(UInt_t index, UInt_t stop, deque<UInt_t >* cols, deque<UInt_t >* rows, deque<Bool_t >* centered, deque<UInt_t >* indices);
     Int_t processDat();
     Int_t skipHeader();
 
@@ -85,6 +91,11 @@ private:
     Bool_t      m_bDevID;
 
     //
+    // centroiding parameters
+    ULong64_t      m_gapTime;
+    UInt_t         m_gapPix;
+
+    //
     // options of GUI
     Bool_t m_bCol;
     Bool_t m_bRow;
@@ -93,6 +104,7 @@ private:
     Bool_t m_bTrig;
     Bool_t m_bTrigTime;
     Bool_t m_bTrigToA;
+    Bool_t m_bCentroid;
     Bool_t m_bNoTrigWindow;
     Bool_t m_bSingleFile;
 
@@ -111,16 +123,19 @@ private:
     TString         m_fileNameRoot;
     TString         m_fileNamePdf;
     TString         m_fileNameCsv;
+    TString         m_fileNameCentCsv;
 
     //
     // files
     deque<FILE* >   m_filesDat;
     TFile*          m_fileRoot;
     deque<FILE* >   m_filesCsv;
+    deque<FILE* >   m_filesCentCsv;
 
     //
     // ROOT trees
     TTree* m_rawTree;
+    TTree* m_centTree;
     TTree* m_timeTree;
 
     UInt_t m_nRaw;
@@ -131,6 +146,8 @@ private:
     TH2I* m_pixelMap;
     TH2F* m_pixelMapToT;
     TH2F* m_pixelMapToA;
+
+    TH2I* m_pixelMapCent;
 
     TH1I* m_histToT;
     TH1I* m_histToA;
@@ -148,6 +165,12 @@ private:
     UInt_t      m_col;
     UInt_t      m_ToT;
     ULong64_t   m_ToA;
+
+    UInt_t      m_centRow;
+    UInt_t      m_centCol;
+    UInt_t      m_centSize;
+    UInt_t      m_centToT;
+    ULong64_t   m_centToA;
 
     //
     // trigger data

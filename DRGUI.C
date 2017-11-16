@@ -77,6 +77,7 @@ public:
         bool bTrig;
         bool bTrigTime;
         bool bTrigToA;
+        bool bCentroid;
 
         ProcType ptProcess;
         bool bCombineInput;
@@ -119,7 +120,7 @@ public:
 
 private:
         TString m_infoMsg;
-        TObjString m_inputNames[16];
+        TObjString m_inputNames[32];
 };
 
 DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
@@ -136,6 +137,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	bNoTrigWindow = false;
 	bSingleFile = false;
         bCombineInput = false;
+        bCentroid = false;
         inputNumber = 0;
 
         ptProcess = procAll;
@@ -152,7 +154,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 
 //	VARIABLE and PROCESSES ON LEFT
 	TGVerticalFrame * variables = new TGVerticalFrame(this);
-        AddFrame(variables, new TGLayoutHints(kLHintsLeft | kLHintsNormal | kLHintsExpandY, 5,5,5,5));
+        AddFrame(variables, new TGLayoutHints(kLHintsLeft | kLHintsNormal | kLHintsExpandY, 5, 5, 5, 5));
 
 //	Separator
 	TGVertical3DLine *separator = new TGVertical3DLine(this);
@@ -234,18 +236,21 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 //      PROCESSES
         TGVButtonGroup * procGroup = new TGVButtonGroup(variables, "Process");
         procGroup->SetTitlePos(TGGroupFrame::kCenter);
+        TGCheckButton * cent    = new TGCheckButton(procGroup, "Centroid");
         TGRadioButton * all     = new TGRadioButton(procGroup, "all");
         TGRadioButton * data    = new TGRadioButton(procGroup, "data");
         TGRadioButton * root    = new TGRadioButton(procGroup, "root");
 
-        all->SetOn();
+        all ->SetOn();
         data->SetOn(kFALSE);
         root->SetOn(kFALSE);
 
+        procGroup->AddFrame(cent,   new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
         procGroup->AddFrame(all,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
         procGroup->AddFrame(data,   new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
         procGroup->AddFrame(root,   new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 
+        cent    ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectCent(Bool_t)");
         all     ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectAll(Bool_t)");
         data    ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectData(Bool_t)");
         root    ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectRoot(Bool_t)");
@@ -332,6 +337,7 @@ void DRGui::SelectTrig(Bool_t check)     { bTrig = check; }
 void DRGui::SelecTtrigTime(Bool_t check) { bTrigTime = check; }
 void DRGui::SelectTrigToA(Bool_t check)  { bTrigToA = check; }
 
+void DRGui::SelectCent(Bool_t check)    { if (check) bCentroid = check; }
 void DRGui::SelectAll(Bool_t check)     { if (check) ptProcess = procAll; }
 void DRGui::SelectData(Bool_t check)    { if (check) ptProcess = procDat; }
 void DRGui::SelectRoot(Bool_t check)    { if (check) ptProcess = procRoot; }
@@ -383,7 +389,7 @@ void DRGui::RunReducer()
     {
         processor->setName(m_inputNames, inputNumber);
         processor->setProcess(ptProcess);
-        processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
+        processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bCentroid, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
         processor->process();
     }
     else
@@ -393,14 +399,14 @@ void DRGui::RunReducer()
             tmpString = m_inputNames[i].GetString();
             if (tmpString.EndsWith(".root"))
             {
-                processor->setProcess(ProcType::procRoot);
+                processor->setProcess(procRoot);
             }
             else if (tmpString.EndsWith(".dat") || tmpString.EndsWith(".tpx3"))
             {
                 processor->setProcess(ptProcess);
             }
             processor->setName(tmpString);
-            processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
+            processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bCentroid, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
             processor->process();
         }
     }

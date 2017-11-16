@@ -1,5 +1,3 @@
-#include "dataprocess.h"
-
 #include <iostream>
 #include <stdio.h>
 #include <algorithm>
@@ -20,6 +18,9 @@ DataProcess::DataProcess(TString fileNameInput)
 //    m_fileNameInput.push_back(fileNameInput);
     m_numInputs = 1;
 
+    m_gapTime = 131072; // approx 1us
+    m_gapPix = 0;
+
     m_sigHandler = new TSignalHandler(kSigInterrupt);
     m_sigHandler->Add();
     m_sigHandler->Connect("Notified()", "DataProcess", this, "StopLoop()");
@@ -30,11 +31,16 @@ DataProcess::DataProcess(TString fileNameInput)
     m_bDevID = kFALSE;
 }
 
+DataProcess::~DataProcess()
+{
+    delete m_sigHandler;
+}
+
 void DataProcess::setName(TString fileNameInput)
 {
     m_numInputs = 1;
     m_fileNameInput.push_back(fileNameInput);
-    cout << "file name input " << m_fileNameInput.back() << endl;
+    std::cout << "file name input " << m_fileNameInput.back() << std::endl;
 }
 
 void DataProcess::setName(TObjString* fileNameInput, Int_t size)
@@ -44,7 +50,7 @@ void DataProcess::setName(TObjString* fileNameInput, Int_t size)
     for (Int_t input = 0; input < m_numInputs; input++)
     {
         m_fileNameInput.push_back( fileNameInput[input].GetString()) ;
-        cout << "file name input " << m_fileNameInput.back() << " number " << input << endl;
+        std::cout << "file name input " << m_fileNameInput.back() << " number " << input << std::endl;
     }
 }
 
@@ -65,6 +71,7 @@ Int_t DataProcess::setOptions(Bool_t bCol,
                               Bool_t bTrig,
                               Bool_t bTrigTime,
                               Bool_t bTrigToA,
+                              Bool_t bCentroid,
                               Bool_t bNoTrigWindow,
                               Float_t timeWindow,
                               Float_t timeStart,
@@ -78,6 +85,7 @@ Int_t DataProcess::setOptions(Bool_t bCol,
     m_bTrig         = bTrig;
     m_bTrigTime     = bTrigTime;
     m_bTrigToA      = bTrigToA;
+    m_bCentroid     = bCentroid;
     m_bNoTrigWindow = bNoTrigWindow;
     m_bSingleFile   = singleFile;
     m_timeWindow    = timeWindow;
@@ -86,9 +94,9 @@ Int_t DataProcess::setOptions(Bool_t bCol,
 
     if (timeWindow/1000 > 500)
     {
-            cout << " ========================================== " << endl;
-            cout << " === " << timeWindow << " us is very large winwdow!!!" << endl;
-            cout << " ========================================== " << endl;
+            std::cout << " ========================================== " << std::endl;
+            std::cout << " === " << timeWindow << " us is very large winwdow!!!" << std::endl;
+            std::cout << " ========================================== " << std::endl;
             return -1;
     }
 
@@ -135,9 +143,9 @@ Int_t DataProcess::process()
 
             break;
         default :
-            cout << " ========================================== " << endl;
-            cout << " ====== COULD NOT DECIDE WHAT TO DO ======= " << endl;
-            cout << " ========================================== " << endl;
+            std::cout << " ========================================== " << std::endl;
+            std::cout << " ====== COULD NOT DECIDE WHAT TO DO ======= " << std::endl;
+            std::cout << " ========================================== " << std::endl;
 
             return -2;
     }
@@ -176,11 +184,14 @@ void DataProcess::plotStandardData()
     m_pixelMapToT->SetStats(kFALSE);
     m_pixelMapToT->Draw("colz");
 
-    canvas->cd(3);
-    gPad->SetLogz();
-    gPad->SetRightMargin(0.15);
-    m_pixelMapToA->SetStats(kFALSE);
-    m_pixelMapToA->Draw("colz");
+    if (m_bCentroid)
+    {
+        canvas->cd(3);
+        gPad->SetLogz();
+        gPad->SetRightMargin(0.15);
+        m_pixelMapCent->SetStats(kFALSE);
+        m_pixelMapCent->Draw("colz");
+    }
 
     canvas->cd(5);
     gPad->SetRightMargin(0.15);
@@ -262,9 +273,10 @@ Int_t DataProcess::processFileNames()
         if (m_numInputs == 1)   repPos = m_fileNameInput[input].Last('.');
         else                    repPos = m_fileNameInput[input].Last('-');
 
-        m_fileNameRoot  = m_fileNameInput[input].Replace(repPos, 200, ".root");
-        m_fileNamePdf   = m_fileNameInput[input].Replace(repPos, 200, ".pdf");
-        m_fileNameCsv   = m_fileNameInput[input].Replace(repPos, 200, ".csv");
+        m_fileNameRoot      = m_fileNameInput[input].Replace(repPos, 200, ".root");
+        m_fileNamePdf       = m_fileNameInput[input].Replace(repPos, 200, ".pdf");
+        m_fileNameCsv       = m_fileNameInput[input].Replace(repPos, 200, ".csv");
+        m_fileNameCentCsv   = m_fileNameInput[input].Replace(repPos, 200, "_cent.csv");
     }
 
     return 0;
@@ -273,13 +285,13 @@ Int_t DataProcess::processFileNames()
 Int_t DataProcess::openDat(Int_t fileCounter)
 {
     FILE* fileDat = fopen(m_fileNamePath + m_fileNameDat[fileCounter], "r");
-    cout << m_fileNameDat[fileCounter] << " at " << m_fileNamePath << endl;
+    std::cout << m_fileNameDat[fileCounter] << " at " << m_fileNamePath << std::endl;
 
     if (fileDat == NULL)
     {
-        cout << " ========================================== " << endl;
-        cout << " == COULD NOT OPEN DAT, PLEASE CHECK IT === " << endl;
-        cout << " ========================================== " << endl;
+        std::cout << " ========================================== " << std::endl;
+        std::cout << " == COULD NOT OPEN DAT, PLEASE CHECK IT === " << std::endl;
+        std::cout << " ========================================== " << std::endl;
         return -1;
     }
 
@@ -288,9 +300,17 @@ Int_t DataProcess::openDat(Int_t fileCounter)
     return 0;
 }
 
-Int_t DataProcess::openCsv(TString fileCounter)
+Int_t DataProcess::openCsv(DataType type, TString fileCounter)
 {
-    TString fileNameTmp = m_fileNameCsv;
+    TString fileNameTmp;
+    if (type == dtCent)
+    {
+        fileNameTmp = m_fileNameCentCsv;
+    }
+    else
+    {
+        fileNameTmp = m_fileNameCsv;
+    }
     UInt_t dotPos = fileNameTmp.Last('.');
 
     if (fileCounter.Sizeof() != 1)
@@ -299,26 +319,35 @@ Int_t DataProcess::openCsv(TString fileCounter)
     }
 
     FILE* fileCsv = fopen(m_fileNamePath + fileNameTmp, "w");
-    cout << fileNameTmp << " at " << m_fileNamePath << endl;
+    std::cout << fileNameTmp << " at " << m_fileNamePath << std::endl;
 
     if (fileCsv == NULL)
     {
-        cout << " ========================================== " << endl;
-        cout << " = COULD NOT OPEN CSV, "<< fileCounter << " PLEASE CHECK IT == " << endl;
-        cout << " ========================================== " << endl;
+        std::cout << " ========================================== " << std::endl;
+        std::cout << " = COULD NOT OPEN CSV, "<< fileCounter << " PLEASE CHECK IT == " << std::endl;
+        std::cout << " ========================================== " << std::endl;
         return -1;
     }
 
-    m_filesCsv.push_back(fileCsv);
+    deque<FILE* >* files;
+    if (type == dtCent)
+    {
+        files = &m_filesCentCsv;
+    }
+    else
+    {
+        files = &m_filesCsv;
+    }
+    files->push_back(fileCsv);
 
-    if (m_bTrig)    fprintf(m_filesCsv.back(), "#TrigId, ");
-    if (m_bTrigTime)fprintf(m_filesCsv.back(), "#TrigTime, ");
-    if (m_bCol)     fprintf(m_filesCsv.back(), "#Col, ");
-    if (m_bRow)     fprintf(m_filesCsv.back(), "#Row, ");
-    if (m_bToA)     fprintf(m_filesCsv.back(), "#ToA, ");
-    if (m_bToT)     fprintf(m_filesCsv.back(), "#ToT, ");
-    if (m_bTrigToA) fprintf(m_filesCsv.back(), "#Trig-ToA, ");
-    fprintf(m_filesCsv.back(), "\n");
+    if (m_bTrig)    fprintf(files->back(), "#TrigId, ");
+    if (m_bTrigTime)fprintf(files->back(), "#TrigTime, ");
+    if (m_bCol)     fprintf(files->back(), "#Col, ");
+    if (m_bRow)     fprintf(files->back(), "#Row, ");
+    if (m_bToA)     fprintf(files->back(), "#ToA, ");
+    if (m_bToT)     fprintf(files->back(), "#ToT, ");
+    if (m_bTrigToA) fprintf(files->back(), "#Trig-ToA, ");
+    fprintf(files->back(), "\n");
 
     return 0;
 }
@@ -330,15 +359,15 @@ Int_t DataProcess::openRoot()
     if ( m_process == procDat || m_process == procAll)
     {
         m_fileRoot = new TFile(m_fileNamePath + m_fileNameRoot, "RECREATE");
-        cout << m_fileNameRoot << " at " << m_fileNamePath << endl;
+        std::cout << m_fileNameRoot << " at " << m_fileNamePath << std::endl;
 
         //
         // check if file opened correctly
         if (m_fileRoot == NULL)
         {
-            cout << " ========================================== " << endl;
-            cout << " == COULD NOT OPEN ROOT, PLEASE CHECK IT == " << endl;
-            cout << " ========================================== " << endl;
+            std::cout << " ========================================== " << std::endl;
+            std::cout << " == COULD NOT OPEN ROOT, PLEASE CHECK IT == " << std::endl;
+            std::cout << " ========================================== " << std::endl;
             return -1;
         }
 
@@ -350,6 +379,14 @@ Int_t DataProcess::openRoot()
         m_rawTree->Branch("ToT", &m_ToT, "ToT/i");
         m_rawTree->Branch("ToA", &m_ToA, "ToA/l");    // l for long
 
+        m_centTree = new TTree("centtree", "Tpx3 camera, November 2017");
+        m_centTree->Branch("CentCol",  &m_centCol,  "CentCol/i");
+        m_centTree->Branch("CentRow",  &m_centRow,  "CentRow/i");
+        m_centTree->Branch("CentSize", &m_centSize, "CentSize/i");
+        m_centTree->Branch("CentToT",  &m_centToT,  "CentToT/i");
+        m_centTree->Branch("CentToA",  &m_centToA,  "CentToA/l");    // l for long
+
+
         m_timeTree = new TTree("timetree", "Tpx3 camera, March 2017");
         m_timeTree->Branch("TrigCntr", &m_trigCnt, "TrigCntr/i");
         m_timeTree->Branch("TrigTime", &m_trigTime,"TrigTime/l");
@@ -359,6 +396,7 @@ Int_t DataProcess::openRoot()
         m_pixelMap      = new TH2I("pixelMap", "Col:Row", 256, -0.5, 255.5, 256, -0.5, 255.5);
         m_pixelMapToT   = new TH2F("pixelMapToT", "Col:Row:{ToT}", 256, -0.5, 255.5, 256, -0.5, 255.5);
         m_pixelMapToA   = new TH2F("pixelMapToA", "Col:Row:{ToA}", 256, -0.5, 255.5, 256, -0.5, 255.5);
+        m_pixelMapCent  = new TH2I("pixelMapCent", "CentCol:CentRow", 256, -0.5, 255.5, 256, -0.5, 255.5);
 
         m_histToT       = new TH1I("histToT", "ToT", 1200, 0, 20000);
         m_histToA       = new TH1I("histToA", "ToA", 100, 0, 0);
@@ -370,15 +408,15 @@ Int_t DataProcess::openRoot()
     else if (m_process == procRoot)
     {
         m_fileRoot = new TFile(m_fileNamePath + m_fileNameRoot, "UPDATE");
-        cout << m_fileNameRoot << " at " << m_fileNamePath << endl;
+        std::cout << m_fileNameRoot << " at " << m_fileNamePath << std::endl;
 
         //
         // check if file opened correctly
         if (m_fileRoot == NULL)
         {
-            cout << " ========================================== " << endl;
-            cout << " == COULD NOT OPEN ROOT, PLEASE CHECK IT == " << endl;
-            cout << " ========================================== " << endl;
+            std::cout << " ========================================== " << std::endl;
+            std::cout << " == COULD NOT OPEN ROOT, PLEASE CHECK IT == " << std::endl;
+            std::cout << " ========================================== " << std::endl;
             return -1;
         }
 
@@ -390,6 +428,13 @@ Int_t DataProcess::openRoot()
         m_rawTree->SetBranchAddress("ToT", &m_ToT);
         m_rawTree->SetBranchAddress("ToA", &m_ToA);
 
+        m_centTree = (TTree * ) m_fileRoot->Get("centtree");
+        m_centTree->SetBranchAddress("CentCol",  &m_centCol);
+        m_centTree->SetBranchAddress("CentRow",  &m_centRow);
+        m_centTree->SetBranchAddress("CentSize", &m_centSize);
+        m_centTree->SetBranchAddress("CentToT",  &m_centToT);
+        m_centTree->SetBranchAddress("CentToA",  &m_centToA);
+
         m_timeTree = (TTree * ) m_fileRoot->Get("timetree");
         m_timeTree->SetBranchAddress("TrigCntr", &m_trigCnt);
         m_timeTree->SetBranchAddress("TrigTime", &m_trigTime);
@@ -399,6 +444,7 @@ Int_t DataProcess::openRoot()
         m_pixelMap      = (TH2I *) m_fileRoot->Get("pixelMap");
         m_pixelMapToT   = (TH2F *) m_fileRoot->Get("pixelMapToT");
         m_pixelMapToA   = (TH2F *) m_fileRoot->Get("pixelMapToA");
+        m_pixelMapCent  = (TH2I *) m_fileRoot->Get("pixelMapCent");
 
         m_histToT       = (TH1I *) m_fileRoot->Get("histToT");
         m_histToA       = (TH1I *) m_fileRoot->Get("histToA");
@@ -428,10 +474,14 @@ void DataProcess::closeDat()
 void DataProcess::closeCsv()
 {
     while (m_filesCsv.size() != 0)
-//    for (UInt_t size = 0; size < m_filesCsv.size(); size++)
     {
         fclose(m_filesCsv.front());
         m_filesCsv.pop_front();
+        if (m_bCentroid)
+        {
+            fclose(m_filesCentCsv.front());
+            m_filesCentCsv.pop_front();
+        }
     }
 }
 
@@ -457,11 +507,11 @@ Int_t DataProcess::skipHeader()
     UInt_t sphdr_size;
     retVal = fread( &sphdr_id, sizeof(UInt_t), 1, m_filesDat.back());
     retVal = fread( &sphdr_size, sizeof(UInt_t), 1, m_filesDat.back());
-    cout << hex << sphdr_id << dec << endl;
-    cout << "header size " << sphdr_size << endl;
+    std::cout << hex << sphdr_id << dec << std::endl;
+    std::cout << "header size " << sphdr_size << std::endl;
     if (sphdr_size > 66304) sphdr_size = 66304;
     UInt_t *fullheader = new UInt_t[sphdr_size/sizeof(UInt_t)];
-    if (fullheader == 0) { cout << "failed to allocate memory for header " << endl; return -1; }
+    if (fullheader == 0) { std::cout << "failed to allocate memory for header " << std::endl; return -1; }
 
     retVal = fread ( fullheader+2, sizeof(UInt_t), sphdr_size/sizeof(UInt_t) -2, m_filesDat.back());
     fullheader[0] = sphdr_id;
@@ -482,6 +532,20 @@ Int_t DataProcess::skipHeader()
     }
 
     return 0;
+}
+
+// find clusters recursively
+void DataProcess::findCluster(UInt_t index, UInt_t stop, deque<UInt_t >* cols, deque<UInt_t >* rows, deque<Bool_t >* centered, deque<UInt_t >* indices)
+{
+    for (UInt_t k = 0; k < stop; k++)
+    {
+        if (!(centered->at(k)) && abs((int)cols->at(index) - (int)cols->at(k)) <= (1 + m_gapPix) && abs((int)rows->at(index ) - (int)rows->at(k)) <= (1 + m_gapPix))
+        {
+            centered->at(k) = kTRUE;
+            indices->push_back(k);
+            findCluster(k,stop,cols,rows,centered,indices);
+        }
+    }
 }
 
 
@@ -526,8 +590,19 @@ Int_t DataProcess::processDat()
     UInt_t sortSize = MAXHITS;
     UInt_t sortThreshold = 2*sortSize;
 
-    UInt_t backjumpcnt = 0;
+    //
+    // used for centroiding
+    deque<Bool_t>   Centered;
+    deque<UInt_t>   centeredIndices;
+    UInt_t          centeredIndex;
 
+    UInt_t    totalToT;
+    ULong64_t totalToA;
+    UInt_t    posX, posY;
+    Bool_t    indexFound;
+
+
+    UInt_t backjumpcnt = 0;
     Int_t curInput = 0;
 
     //
@@ -543,7 +618,7 @@ Int_t DataProcess::processDat()
         //
         // read entries, write out each 10^5
         retVal = fread( &pixdata, sizeof(ULong64_t), 1, m_filesDat.back());
-        if (m_pixelCounter % 100000 == 0) cout << "Count " << m_pixelCounter << endl;
+        if (m_pixelCounter % 100000 == 0) std::cout << "Count " << m_pixelCounter << std::endl;
 
         //
         // reading data and saving them to deques or timeTrees
@@ -587,15 +662,16 @@ Int_t DataProcess::processDat()
                 if( diff == -1 || diff == 3 )  globaltime = ( (longtime + 0x10000000) & 0xFFFFC0000000) | (ToA_coarse & 0x3FFFFFFF);
                 if ( ( ( globaltime >> 28 ) & 0x3 ) != ( (ULong64_t) pixelbits ) )
                 {
-                    cout << "Error, checking bits should match .. " << endl;
-                    cout << hex << globaltime << " " << ToA_coarse << " " << dec << ( ( globaltime >> 28 ) & 0x3 ) << " " << pixelbits << " " << diff << endl;
+                    std::cout << "Error, checking bits should match .. " << std::endl;
+                    std::cout << hex << globaltime << " " << ToA_coarse << " " << dec << ( ( globaltime >> 28 ) & 0x3 ) << " " << pixelbits << " " << diff << std::endl;
                 }
 
                 //
                 // fill deques
+                Centered.push_back(kFALSE);
                 Cols.push_back(col);
                 Rows.push_back(row);
-                ToTs.push_back(ToT*25); // save in ms
+                ToTs.push_back(ToT*25); // save in ns
                 // subtract fast ToA (FToA count until the first clock edge, so less counts means later arrival of the hit)
                 ToAs.push_back((globaltime << 12) - (FToA << 8));
                 // now correct for the column to column phase shift (todo: check header for number of clock phases)
@@ -624,7 +700,7 @@ Int_t DataProcess::processDat()
                     // check if the first trigger number is 1
                     if (! m_bFirstTrig && m_trigCnt != 1)
                     {
-                        cout << "first trigger number in file is not 1" << endl;
+                        std::cout << "first trigger number in file is not 1" << std::endl;
                     } else
                     {
                         if ( trigtime_coarse < prev_trigtime_coarse )   // 32 time counter wrapped
@@ -632,9 +708,9 @@ Int_t DataProcess::processDat()
                             if ( trigtime_coarse < prev_trigtime_coarse-1000 )
                             {
                                 trigtime_global_ext += 0x100000000;
-                                cout << "coarse trigger time counter wrapped: " << m_trigCnt << " " << trigtime_coarse << " " << prev_trigtime_coarse << endl;
+                                std::cout << "coarse trigger time counter wrapped: " << m_trigCnt << " " << trigtime_coarse << " " << prev_trigtime_coarse << std::endl;
                             }
-                            else cout << "small backward time jump in trigger packet " << m_trigCnt << " (jump of " << prev_trigtime_coarse-trigtime_coarse << ")" << endl;
+                            else std::cout << "small backward time jump in trigger packet " << m_trigCnt << " (jump of " << prev_trigtime_coarse-trigtime_coarse << ")" << std::endl;
                         }
                         m_bFirstTrig = kTRUE;
                         m_trigTime = ((trigtime_global_ext + (ULong64_t) trigtime_coarse) << 12) | (ULong64_t) trigtime_fine; // save in ns
@@ -659,7 +735,7 @@ Int_t DataProcess::processDat()
                     // 0x10000000 corresponds to about 6 seconds
                     if ( (tmplongtime > ( longtime + 0x10000000)) && (longtime > 0) )
                     {
-                        cout << "Large forward time jump" << endl;
+                        std::cout << "Large forward time jump" << std::endl;
                         longtime = (longtime_msb - 0x10000000) | longtime_lsb;
                     }
                     else longtime = tmplongtime;
@@ -705,9 +781,85 @@ Int_t DataProcess::processDat()
             }
 
             //
-            // dump first half of sorted data to the tree
-            for (UInt_t i = 0; i < actSortedSize; i++)
+            // saving half of the sorted data to root file
+            // first do centroiding
+            for (UInt_t i = 0; i < actSortedSize ; i++)
             {
+                indexFound = kFALSE;
+                posX = 0;
+                posY = 0;
+                ToT = 0;
+                totalToT = 0;
+                totalToA = 0;
+
+                // get all hits in one time window
+                UInt_t j = 0;
+                while (!Centered.front() && j < Cols.size())
+                {
+                    // reaching the window gap
+                    if ((ToAs[j] - ToAs.front()) > m_gapTime)
+                    {
+                        break;
+                    }
+                    j++;
+                }
+
+                // find cluster obtaining index i (current pixel always in the cluster - if not chosen in the previous run)
+                if (!Centered.front())
+                {
+                    centeredIndices.push_back(0);
+                    Centered.front() = kTRUE;
+                }
+                for (UInt_t k = 0; k < j; k++)
+                {
+                    findCluster(k, j, &Cols, &Rows, &Centered, &centeredIndices);
+                }
+
+                // get centroid
+                m_centSize = centeredIndices.size();
+                for (UInt_t k = 0; k < m_centSize; k++)
+                {
+                    ToT = ToTs[centeredIndices[k]];
+                    totalToT += ToT;
+                    posX += ToT*Cols[centeredIndices[k]];
+                    posY += ToT*Rows[centeredIndices[k]];
+                }
+
+                if (m_centSize != 0)
+                {
+                    posX = (UInt_t) ((((Float_t) posX) / totalToT) + 0.5);
+                    posY = (UInt_t) ((((Float_t) posY) / totalToT) + 0.5);
+                }
+                while ( centeredIndices.size() != 0)
+                {
+                    if (!indexFound && Cols[centeredIndices.front()] == posX && Rows[centeredIndices.front()] == posY)
+                    {
+                        centeredIndex = centeredIndices.front();
+                        indexFound = kTRUE;
+                    }
+
+                    // if index does not fit cluster, take as center pixel with highest ToT
+                    if (!indexFound && totalToT < ToTs[centeredIndices.front()])
+                    {
+                        centeredIndex = centeredIndices.front();
+                    }
+
+                    centeredIndices.pop_front();
+                }
+
+                if (indexFound || m_centSize != 0)
+                {
+                    // dump found centroid to a tree
+                    m_centCol = Cols[centeredIndex];
+                    m_centRow = Rows[centeredIndex];
+                    m_centToT = ToTs[centeredIndex];
+                    m_centToA = ToAs[centeredIndex];
+                    m_centTree->Fill();
+
+                    m_pixelMapCent->Fill(m_centCol,m_centRow);
+                }
+
+                // dump first half of sorted data to the tree
                 m_col = Cols.front();
                 m_row = Rows.front();
                 m_ToT = ToTs.front();
@@ -727,6 +879,7 @@ Int_t DataProcess::processDat()
                 Rows.pop_front();
                 ToTs.pop_front();
                 ToAs.pop_front();
+                Centered.pop_front();
             }
 
             //
@@ -739,7 +892,7 @@ Int_t DataProcess::processDat()
             {
                 m_nRaw = m_rawTree->GetEntries();
                 m_nTime = m_timeTree->GetEntries();
-                cout << "===" << backjumpcnt << " backward time jumps found ==" << endl;
+                std::cout << "===" << backjumpcnt << " backward time jumps found ==" << std::endl;
 
                 finishMsg(m_fileNameDat[curInput-1], "processing data", m_pixelCounter);
                 return 0;
@@ -749,7 +902,7 @@ Int_t DataProcess::processDat()
 
     m_nRaw = m_rawTree->GetEntries();
     m_nTime = m_timeTree->GetEntries();
-    cout << "Not all pixel packets found" << endl;
+    std::cout << "Not all pixel packets found" << std::endl;
     finishMsg(m_fileNameDat[curInput], "processing data", m_pixelCounter);
     return 0;
 }
@@ -757,6 +910,7 @@ Int_t DataProcess::processDat()
 Int_t DataProcess::processRoot()
 {
     m_lineCounter = 0;
+    UInt_t lineCounterCent = 0;
     UInt_t currChunk = 0;
     UInt_t entryTime = 0;
     ULong64_t tmpTrigTime = 0;
@@ -800,7 +954,7 @@ Int_t DataProcess::processRoot()
     // loop entries in timeTree
     while (entryTime < m_nTime || m_nTime == 0)
     {
-        if (entryTime % 10000 == 0) cout << "Time entry " << entryTime << " out of " << m_nTime << " done!" << endl;
+        if (entryTime % 10000 == 0) std::cout << "Time entry " << entryTime << " out of " << m_nTime << " done!" << std::endl;
 
         if (m_nTime != 0)
         {
@@ -831,8 +985,8 @@ Int_t DataProcess::processRoot()
 
                 fprintf(m_filesCsv.back(), "\n");
             }
-//            cout << "========================" << endl;
-//            cout << "Time window is " << m_lfTimeWindow << endl;
+//            std::cout << "========================" << std::endl;
+//            std::cout << "Time window is " << m_lfTimeWindow << std::endl;
         }
 
         //
@@ -840,7 +994,7 @@ Int_t DataProcess::processRoot()
         for (UInt_t entryRaw = currChunk; entryRaw < m_nRaw; entryRaw++)
         {
             m_rawTree->GetEntry(entryRaw);
-            if (entryRaw % 10000 == 0 && m_nTime == 0) cout << "Raw entry " << entryRaw << " of " << m_nRaw << " done!" << endl;
+            if (entryRaw % 10000 == 0 && m_nTime == 0) std::cout << "Raw entry " << entryRaw << " of " << m_nRaw << " done!" << std::endl;
 
             //
             // dump all useless data
@@ -854,9 +1008,9 @@ Int_t DataProcess::processRoot()
             // stop rawTree loop if further away then trigger+window
             if ( m_nTime!= 0 && m_ToA > (m_trigTime +  lfTimeStart + lfTimeWindow))
             {
-//                cout << "useless entries " << currChunk - uselessChunk << endl;
-//                cout << "entries in chunk " << entryRaw - currChunk << endl;
-//                cout << "========================" << endl;
+//                std::cout << "useless entries " << currChunk - uselessChunk << std::endl;
+//                std::cout << "entries in chunk " << entryRaw - currChunk << std::endl;
+//                std::cout << "========================" << std::endl;
 
                 currChunk = entryRaw;
 //                uselessChunk = currChunk;
@@ -868,14 +1022,25 @@ Int_t DataProcess::processRoot()
                 // single file creation
                 if (m_bSingleFile && m_filesCsv.size() == 0)
                 {
-                    if (openCsv()) return -1;
+                    if (openCsv(dtStandard)) return -1;
+                    if (m_bCentroid)
+                    {
+                        if (openCsv(dtCent)) return -1;
+                    }
                 }
 
                 //
                 // multiple file creation
                 if (m_lineCounter % m_linesPerFile == 0 && !m_bSingleFile)
                 {
-                    if (openCsv(TString::Format("%d", m_lineCounter / m_linesPerFile))) return -1;
+                    if (openCsv(dtStandard, TString::Format("%d", m_lineCounter / m_linesPerFile))) return -1;
+                }
+
+                //
+                // multiple file creation
+                if (m_bCentroid && (lineCounterCent % m_linesPerFile == 0) && !m_bSingleFile)
+                {
+                    if (openCsv(dtCent, TString::Format("%d", lineCounterCent / m_linesPerFile))) return -1;
                 }
 
                 //
@@ -915,21 +1080,21 @@ Int_t DataProcess::processRoot()
 
 void DataProcess::finishMsg(TString fileName, TString operation, UInt_t events, Int_t fileCounter)
 {
-    cout << "==============================================="  << endl;
-    cout << fileName << endl;
-    cout << "==============================================="  << endl;
-    cout << "====== "<< operation << " IS DONE !!!  ==========="  << endl;
-    cout << "==============================================="  << endl;
-    cout << "====  " << events << " events from total of " << m_nRaw << " selected!"  << endl;
+    std::cout << "==============================================="  << std::endl;
+    std::cout << fileName << std::endl;
+    std::cout << "==============================================="  << std::endl;
+    std::cout << "====== "<< operation << " IS DONE !!!  ==========="  << std::endl;
+    std::cout << "==============================================="  << std::endl;
+    std::cout << "====  " << events << " events from total of " << m_nRaw << " selected!"  << std::endl;
     if (operation == "processing data")
     {
-        cout << "=========== " << fileCounter << " FILE(S) PROCESSED!!! ============"  << endl;
+        std::cout << "=========== " << fileCounter << " FILE(S) PROCESSED!!! ============"  << std::endl;
     }
     else
     {
-        cout << "========== " << fileCounter << " FILE(S) WRITTEN OUT!!! ==========="  << endl;
+        std::cout << "========== " << fileCounter << " FILE(S) WRITTEN OUT!!! ==========="  << std::endl;
     }
-    cout << "==============================================="  << endl;
+    std::cout << "==============================================="  << std::endl;
 }
 
 ULong64_t DataProcess::roundToNs(ULong64_t number)
@@ -940,8 +1105,8 @@ ULong64_t DataProcess::roundToNs(ULong64_t number)
 
 void DataProcess::StopLoop()
 {
-    cout << "==============================================="  << endl;
-    cout << "======== LOOP SUCCESSFULLY STOPPED ============"  << endl;
-    cout << "==============================================="  << endl;
+    std::cout << "==============================================="  << std::endl;
+    std::cout << "======== LOOP SUCCESSFULLY STOPPED ============"  << std::endl;
+    std::cout << "==============================================="  << std::endl;
     gSystem->ExitLoop();
 }
