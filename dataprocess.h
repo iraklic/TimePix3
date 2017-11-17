@@ -36,7 +36,7 @@ enum DataType
 class DataProcess
 {
 public:
-    DataProcess(TString fileNameInput = "");
+    DataProcess();
     ~DataProcess();
     void setName(TString fileNameInput);
     void setName(TObjString *fileNameInput, Int_t size);
@@ -50,6 +50,8 @@ public:
                       Bool_t bTrigTime = kTRUE,
                       Bool_t bTrigToA = kTRUE,
                       Bool_t bCentroid = kFALSE,
+                      Int_t gapPixel = 0,
+                      Float_t gapTime = 1.0,
                       Bool_t bNoTrigWindow = kFALSE,
                       Float_t timeWindow = 40,
                       Float_t timeStart = 0,
@@ -85,15 +87,9 @@ private:
     UInt_t      m_maxEntries;
     TStopwatch  m_time;
     UInt_t      m_pixelCounter;
-    UInt_t      m_lineCounter;
     TSignalHandler* m_sigHandler;
     Bool_t      m_bFirstTrig;
     Bool_t      m_bDevID;
-
-    //
-    // centroiding parameters
-    ULong64_t      m_gapTime;
-    UInt_t         m_gapPix;
 
     //
     // options of GUI
@@ -112,6 +108,11 @@ private:
     Float_t  m_timeStart;
 
     UInt_t  m_linesPerFile;
+
+    //
+    // centroiding parameters
+    ULong64_t      m_gapTime;
+    UInt_t         m_gapPix;
 
     //
     // file names
@@ -139,6 +140,7 @@ private:
     TTree* m_timeTree;
 
     UInt_t m_nRaw;
+    UInt_t m_nCent;
     UInt_t m_nTime;
 
     //
@@ -151,13 +153,14 @@ private:
 
     TH1I* m_histToT;
     TH1I* m_histToA;
-//    TH2I* m_ToAvsToT;
 
     TH1I* m_histTrigger;
-//    TH1I* m_histTriggerToA;
 
     TH1F* m_histSpectrum;
     TH2F* m_ToTvsToF;
+
+    TH1F* m_histCentSpectrum;
+    TH2F* m_centToTvsToF;
 
     //
     // single pixel data
