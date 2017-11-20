@@ -418,7 +418,8 @@ void DRGui::RunReducer()
 {
     ProcessNames();
     TString tmpString;
-
+    TStopwatch time;
+    time.Start();
     DataProcess* processor = new DataProcess();
     if (bCombineInput)
     {
@@ -445,6 +446,12 @@ void DRGui::RunReducer()
             processor->process();
         }
     }
+    time.Stop();
+    std::cout << std::endl;
+    std::cout << "###################################" << std::endl;
+    std::cout << "Total Runtime of the code: " << std::endl;
+    time.Print();
+
 }
 
 void DRGui::ProcessNames()

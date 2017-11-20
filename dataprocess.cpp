@@ -189,8 +189,8 @@ void DataProcess::plotStandardData()
         canvas->cd(3);
         gPad->SetLogz();
         gPad->SetRightMargin(0.15);
-        m_pixelMapCent->SetStats(kFALSE);
-        m_pixelMapCent->Draw("colz");
+        m_pixelCentMap->SetStats(kFALSE);
+        m_pixelCentMap->Draw("colz");
     }
 
     canvas->cd(5);
@@ -376,19 +376,12 @@ Int_t DataProcess::openRoot()
 
         //
         // create trees
-        m_rawTree = new TTree("rawtree", "Tpx3 camera, March 2017");
-        m_rawTree->Branch("Col", &m_col, "Col/i");
-        m_rawTree->Branch("Row", &m_row, "Row/i");
-        m_rawTree->Branch("ToT", &m_ToT, "ToT/i");
-        m_rawTree->Branch("ToA", &m_ToA, "ToA/l");    // l for long
-
-        m_centTree = new TTree("centtree", "Tpx3 camera, November 2017");
-        m_centTree->Branch("CentCol",  &m_centCol,  "CentCol/i");
-        m_centTree->Branch("CentRow",  &m_centRow,  "CentRow/i");
-        m_centTree->Branch("CentSize", &m_centSize, "CentSize/i");
-        m_centTree->Branch("CentToT",  &m_centToT,  "CentToT/i");
-        m_centTree->Branch("CentToA",  &m_centToA,  "CentToA/l");    // l for long
-
+        m_rawTree = new TTree("rawtree", "Tpx3 camera, November 2017");
+        m_rawTree->Branch("Size", &m_Size, "Size/i");
+        m_rawTree->Branch("Col",   m_Cols, "Col[Size]/i");
+        m_rawTree->Branch("Row",   m_Rows, "Row[Size]/i");
+        m_rawTree->Branch("ToT",   m_ToTs, "ToT[Size]/i");
+        m_rawTree->Branch("ToA",   m_ToAs, "ToA[Size]/l");    // l for long
 
         m_timeTree = new TTree("timetree", "Tpx3 camera, March 2017");
         m_timeTree->Branch("TrigCntr", &m_trigCnt, "TrigCntr/i");
@@ -399,14 +392,20 @@ Int_t DataProcess::openRoot()
         m_pixelMap      = new TH2I("pixelMap", "Col:Row", 256, -0.5, 255.5, 256, -0.5, 255.5);
         m_pixelMapToT   = new TH2F("pixelMapToT", "Col:Row:{ToT}", 256, -0.5, 255.5, 256, -0.5, 255.5);
         m_pixelMapToA   = new TH2F("pixelMapToA", "Col:Row:{ToA}", 256, -0.5, 255.5, 256, -0.5, 255.5);
-        m_pixelMapCent  = new TH2I("pixelMapCent", "CentCol:CentRow", 256, -0.5, 255.5, 256, -0.5, 255.5);
 
         m_histToT       = new TH1I("histToT", "ToT", 200, 0, 5000);
         m_histToA       = new TH1I("histToA", "ToA", 1000, 0, 0);
-//        m_ToAvsToT      = new TH2F("ToAvsToT", "ToA:ToT", 1200, 0, 20000, 100, 0, 0);
+
+        m_pixelCentMap      = new TH2I("pixelCentMap", "Col:Row", 256, -0.5, 255.5, 256, -0.5, 255.5);
+        m_pixelCentMapToT   = new TH2F("pixelCentMapToT", "Col:Row:{ToT}", 256, -0.5, 255.5, 256, -0.5, 255.5);
+        m_pixelCentMapToA   = new TH2F("pixelCentMapToA", "Col:Row:{ToA}", 256, -0.5, 255.5, 256, -0.5, 255.5);
+
+        m_histCentToT       = new TH1I("histCentToT", "ToT", 200, 0, 5000);
+        m_histCentToA       = new TH1I("histCentToA", "ToA", 1000, 0, 0);
+
+        m_histCentToTvsToA  = new TH2F("CentroidToTvsToA", "ToA:ToT", 110, -15.6, 156, 200, 0, 5000);
 
         m_histTrigger   = new TH1I("histTrigger", "Trigger", 1000, 0, 0);
-//        m_histTriggerToA= new TH1F("histTriggerToA", "TriggerToA", 100000, 0, 0);
     }
     else if (m_process == procRoot)
     {
@@ -426,17 +425,11 @@ Int_t DataProcess::openRoot()
         //
         // read trees
         m_rawTree = (TTree * ) m_fileRoot->Get("rawtree");
-        m_rawTree->SetBranchAddress("Col", &m_col);
-        m_rawTree->SetBranchAddress("Row", &m_row);
-        m_rawTree->SetBranchAddress("ToT", &m_ToT);
-        m_rawTree->SetBranchAddress("ToA", &m_ToA);
-
-        m_centTree = (TTree * ) m_fileRoot->Get("centtree");
-        m_centTree->SetBranchAddress("CentCol",  &m_centCol);
-        m_centTree->SetBranchAddress("CentRow",  &m_centRow);
-        m_centTree->SetBranchAddress("CentSize", &m_centSize);
-        m_centTree->SetBranchAddress("CentToT",  &m_centToT);
-        m_centTree->SetBranchAddress("CentToA",  &m_centToA);
+        m_rawTree->SetBranchAddress("Size", &m_Size);
+        m_rawTree->SetBranchAddress("Col",  m_Cols);
+        m_rawTree->SetBranchAddress("Row",  m_Rows);
+        m_rawTree->SetBranchAddress("ToT",  m_ToTs);
+        m_rawTree->SetBranchAddress("ToA",  m_ToAs);
 
         m_timeTree = (TTree * ) m_fileRoot->Get("timetree");
         m_timeTree->SetBranchAddress("TrigCntr", &m_trigCnt);
@@ -447,10 +440,18 @@ Int_t DataProcess::openRoot()
         m_pixelMap      = (TH2I *) m_fileRoot->Get("pixelMap");
         m_pixelMapToT   = (TH2F *) m_fileRoot->Get("pixelMapToT");
         m_pixelMapToA   = (TH2F *) m_fileRoot->Get("pixelMapToA");
-        m_pixelMapCent  = (TH2I *) m_fileRoot->Get("pixelMapCent");
 
         m_histToT       = (TH1I *) m_fileRoot->Get("histToT");
         m_histToA       = (TH1I *) m_fileRoot->Get("histToA");
+
+        m_pixelCentMap      = (TH2I *) m_fileRoot->Get("pixelCentMap");
+        m_pixelCentMapToT   = (TH2F *) m_fileRoot->Get("pixelCentMapToT");
+        m_pixelCentMapToA   = (TH2F *) m_fileRoot->Get("pixelCentMapToA");
+
+        m_histCentToT       = (TH1I *) m_fileRoot->Get("histCentToT");
+        m_histCentToA       = (TH1I *) m_fileRoot->Get("histCentToA");
+
+        m_histCentToTvsToA  = (TH2F *) m_fileRoot->Get("CentroidToTvsToA");
 
         m_histTrigger   = (TH1I *) m_fileRoot->Get("histTrigger");
     }
@@ -489,11 +490,10 @@ void DataProcess::closeCsv()
 
 void DataProcess::closeRoot()
 {
-    m_nRaw = m_rawTree->GetEntries();
-    m_nCent = m_centTree->GetEntries();
+    m_nCent = m_rawTree->GetEntries();
     m_nTime = m_timeTree->GetEntries();
 
-    if (m_nRaw != 0 || m_nTime != 0)
+    if (m_nCent != 0 || m_nTime != 0)
         plotStandardData();
 
     m_fileRoot->cd();
@@ -599,8 +599,7 @@ Int_t DataProcess::processDat()
     deque<UInt_t>   centeredIndices;
     UInt_t          centeredIndex;
 
-    UInt_t    totalToT;
-    ULong64_t totalToA;
+    ULong64_t tmpToA;
     UInt_t    posX, posY;
     Bool_t    indexFound;
 
@@ -788,52 +787,63 @@ Int_t DataProcess::processDat()
             // first do centroiding
             for (UInt_t i = 0; i < actSortedSize ; i++)
             {
-                indexFound = kFALSE;
-                posX = 0;
-                posY = 0;
-                ToT = 0;
-                totalToT = 0;
-                totalToA = 0;
+                indexFound  = kFALSE;
+                posX        = Cols.front();
+                posY        = Rows.front();
+                ToT         = ToTs.front();
 
-                // get all hits in one time window
-                UInt_t j = 0;
-                while (!Centered.front() && j < Cols.size())
+                if (m_bCentroid)
                 {
-                    // reaching the window gap
-                    if ((ToAs[j] - ToAs.front()) > m_gapTime)
+                    // get all hits in one time window
+                    UInt_t j = 0;
+                    while (!Centered.front() && j < Cols.size())
                     {
-                        break;
+                        // reaching the window gap
+                        if ((ToAs[j] - ToAs.front()) > m_gapTime)
+                        {
+                            break;
+                        }
+                        j++;
                     }
-                    j++;
-                }
 
-                // find cluster obtaining index i (current pixel always in the cluster - if not chosen in the previous run)
-                if (!Centered.front())
+                    // find cluster obtaining index i (current pixel always in the cluster - if not chosen in the previous run)
+                    if (!Centered.front())
+                    {
+                        centeredIndices.push_back(0);
+                        Centered.front() = kTRUE;
+                    }
+
+                    for (UInt_t k = 0; k < j; k++)
+                    {
+                        findCluster(k, j, &Cols, &Rows, &Centered, &centeredIndices);
+                    }
+
+                    // get centroid
+                    ToT       = 0;
+                    posX      = 0;
+                    posY      = 0;
+                    for (UInt_t k = 0; k < centeredIndices.size(); k++)
+                    {
+                        ToT      += ToTs[centeredIndices[k]];
+                        posX     += ToTs[centeredIndices[k]]*Cols[centeredIndices[k]];
+                        posY     += ToTs[centeredIndices[k]]*Rows[centeredIndices[k]];
+                    }
+
+                    posX = (UInt_t) ((((Float_t) posX) / ToT) + 0.5);
+                    posY = (UInt_t) ((((Float_t) posY) / ToT) + 0.5);
+                }
+                else
                 {
                     centeredIndices.push_back(0);
-                    Centered.front() = kTRUE;
-                }
-                for (UInt_t k = 0; k < j; k++)
-                {
-                    findCluster(k, j, &Cols, &Rows, &Centered, &centeredIndices);
                 }
 
-                // get centroid
-                m_centSize = centeredIndices.size();
-                for (UInt_t k = 0; k < m_centSize; k++)
-                {
-                    ToT = ToTs[centeredIndices[k]];
-                    totalToT += ToT;
-                    posX += ToT*Cols[centeredIndices[k]];
-                    posY += ToT*Rows[centeredIndices[k]];
-                }
+                //
+                // save data - centroid will have index 0, others following - not necessarilly time-sorted
+                ToT = 0;
+                centeredIndex = 0;
+                m_Size = centeredIndices.size();
 
-                if (m_centSize != 0)
-                {
-                    posX = (UInt_t) ((((Float_t) posX) / totalToT) + 0.5);
-                    posY = (UInt_t) ((((Float_t) posY) / totalToT) + 0.5);
-                }
-                while ( centeredIndices.size() != 0)
+                for (UInt_t k = 0; k < m_Size; k++)
                 {
                     if (!indexFound && Cols[centeredIndices.front()] == posX && Rows[centeredIndices.front()] == posY)
                     {
@@ -842,42 +852,65 @@ Int_t DataProcess::processDat()
                     }
 
                     // if index does not fit cluster, take as center pixel with highest ToT
-                    if (!indexFound && totalToT < ToTs[centeredIndices.front()])
+                    if (!indexFound && ToT < ToTs[centeredIndices.front()])
                     {
+                        ToT = ToTs[centeredIndices.front()];
                         centeredIndex = centeredIndices.front();
+                    }
+
+                    m_Cols[k] = Cols[centeredIndices.front()];
+                    m_Rows[k] = Rows[centeredIndices.front()];
+                    m_ToTs[k] = ToTs[centeredIndices.front()];
+                    m_ToAs[k] = ToAs[centeredIndices.front()];
+
+                    if (k != 0 && centeredIndex == centeredIndices.front())
+                    {
+                        swap(m_Cols[k],m_Cols[0]);
+                        swap(m_Rows[k],m_Rows[0]);
+                        swap(m_ToTs[k],m_ToTs[0]);
+                        swap(m_ToAs[k],m_ToAs[0]);
                     }
 
                     centeredIndices.pop_front();
                 }
 
-                if (indexFound || m_centSize != 0)
+                // save processed data to root and clear for next use
+                tmpToA = m_ToAs[0];
+                for (UInt_t k = 0; k < m_Size; k++)
                 {
-                    // dump found centroid to a tree
-                    m_centCol = Cols[centeredIndex];
-                    m_centRow = Rows[centeredIndex];
-                    m_centToT = ToTs[centeredIndex];
-                    m_centToA = ToAs[centeredIndex];
-                    m_centTree->Fill();
 
-                    m_pixelMapCent->Fill(m_centCol,m_centRow);
+                    if (k == 0)
+                    {
+                        m_rawTree->Fill();
+
+                        if (m_bCentroid)
+                        {
+                            m_pixelCentMap   ->Fill(m_Cols[k],m_Rows[k]);
+                            m_pixelCentMapToT->Fill(m_Cols[k],m_Rows[k],m_ToTs[k]);
+                            m_pixelCentMapToA->Fill(m_Cols[k],m_Rows[k],m_ToAs[k]);
+
+                            m_histCentToT->Fill(m_ToTs[k]);
+                            m_histCentToA->Fill(m_ToAs[k]);
+
+                        }
+                    }
+
+                    m_pixelMap   ->Fill(m_Cols[k],m_Rows[k]);
+                    m_pixelMapToT->Fill(m_Cols[k],m_Rows[k],m_ToTs[k]);
+                    m_pixelMapToA->Fill(m_Cols[k],m_Rows[k],m_ToAs[k]);
+
+                    m_histToT->Fill(m_ToTs[k]);
+                    m_histToA->Fill(m_ToAs[k]);
+
+                    if (m_bCentroid) m_histCentToTvsToA->Fill((m_ToAs[k]-tmpToA)*(25.0/4096), ( m_ToTs[k]));
+
+                    m_Cols[k] = 0;
+                    m_Rows[k] = 0;
+                    m_ToTs[k] = 0;
+                    m_ToAs[k] = 0;
                 }
 
-                // dump first half of sorted data to the tree
-                m_col = Cols.front();
-                m_row = Rows.front();
-                m_ToT = ToTs.front();
-                m_ToA = ToAs.front();
-                m_rawTree->Fill();
-
-                m_pixelMap->Fill(m_col,m_row);
-                m_pixelMapToT->Fill(m_col,m_row,m_ToT);
-                m_pixelMapToA->Fill(m_col,m_row,m_ToA);
-
-//                m_ToAvsToT->Fill(m_ToA,m_ToT);
-
-                m_histToT->Fill(m_ToT);
-                m_histToA->Fill(m_ToA);
-
+                // dump raw data
                 Cols.pop_front();
                 Rows.pop_front();
                 ToTs.pop_front();
@@ -903,7 +936,7 @@ Int_t DataProcess::processDat()
         }
     }
 
-    m_nRaw = m_rawTree->GetEntries();
+    m_nCent = m_rawTree->GetEntries();
     m_nTime = m_timeTree->GetEntries();
     std::cout << "Not all pixel packets found" << std::endl;
     finishMsg(m_fileNameDat[curInput], "processing data", m_pixelCounter);
@@ -928,11 +961,10 @@ Int_t DataProcess::processRoot()
 
     Float_t ToF;
 
-    m_nRaw = m_rawTree->GetEntries();
-    m_nCent = m_centTree->GetEntries();
+    m_nCent = m_rawTree->GetEntries();
     m_nTime = m_timeTree->GetEntries();
 
-    if (!m_bCol && !m_bRow && !m_bToA && !m_bToT && !m_bTrigToA) m_nRaw = 0;
+    if (!m_bCol && !m_bRow && !m_bToA && !m_bToT && !m_bTrigToA) m_nCent = 0;
 
     if (m_nTime == 0) m_bTrig = m_bTrigTime = m_bTrigToA = kFALSE;
 
@@ -981,7 +1013,7 @@ Int_t DataProcess::processRoot()
                 m_timeTree->GetEntry(entryTime);
             }
 
-            if (m_nRaw == 0)
+            if (m_nCent == 0)
             {
                 //
                 // single file creation
@@ -999,123 +1031,108 @@ Int_t DataProcess::processRoot()
         }
 
         //
-        // loop entries in rawTree
-        for (UInt_t entryRaw = currChunkRaw; entryRaw < m_nRaw; entryRaw++)
+        // loop entries in centTree
+        for (UInt_t entryCent = currChunkCent; entryCent < m_nCent; entryCent++)
         {
-            m_rawTree->GetEntry(entryRaw);
-            if (entryRaw % 10000 == 0 && m_nTime == 0) std::cout << "Raw entry " << entryRaw << " of " << m_nRaw << " done!" << std::endl;
+            m_rawTree->GetEntry(entryCent);
+            if (entryCent % 100000 == 0 && m_nTime == 0) std::cout << "Entry " << entryCent << " of " << m_nCent << " done!" << std::endl;
 
             //
             // dump all useless data
-            if ( m_nTime!= 0 && m_ToA < m_trigTime + lfTimeStart)
+            if ( m_nTime!= 0 && m_ToAs[0] < m_trigTime + lfTimeStart)
             {
-                currChunkRaw = entryRaw;
+                currChunkCent = entryCent;
                 continue;
             }
 
             //
             // stop rawTree loop if further away then trigger+window
-            if ( m_nTime!= 0 && m_ToA > (m_trigTime +  lfTimeStart + lfTimeWindow))
+            if ( m_nTime!= 0 && m_ToAs[0] > (m_trigTime +  lfTimeStart + lfTimeWindow))
             {
-                currChunkRaw = entryRaw;
+                currChunkCent = entryCent;
                 break;
             }
             else
             {
                 //
-                // single file creation
-                if (m_bSingleFile && m_filesCsv.size() == 0)
+                // write centroid data
+                if (m_bCentroid)
                 {
-                    if (openCsv(dtStandard)) return -1;
+                    //
+                    // single file creation
+                    if (m_bSingleFile && m_filesCentCsv.size() == 0)
+                    {
+                        if (openCsv(dtCent)) return -1;
+                    }
+
+                    //
+                    // multiple file creation
+                    if ((lineCounterCent % m_linesPerFile == 0) && !m_bSingleFile)
+                    {
+                        if (openCsv(dtCent, TString::Format("%d", lineCounterCent / m_linesPerFile))) return -1;
+                    }
+                    //
+                    // write centroid data
+                    if (m_bTrig)    fprintf(m_filesCentCsv.back(), "%u,",  m_trigCnt);
+                    if (m_bTrigTime)fprintf(m_filesCentCsv.back(), "%llu,",m_trigTime);
+                    if (m_bCol)     fprintf(m_filesCentCsv.back(), "%u,",  m_Cols[0]);
+                    if (m_bRow)     fprintf(m_filesCentCsv.back(), "%u,",  m_Rows[0]);
+                    if (m_bToA)     fprintf(m_filesCentCsv.back(), "%llu,",m_ToAs[0]);
+                    if (m_bToT)     fprintf(m_filesCentCsv.back(), "%u,",  m_ToTs[0]);
+                    if (m_bTrigToA) fprintf(m_filesCentCsv.back(), "%llu,",m_ToAs[0] - m_trigTime);
+                    if (m_bCentroid)fprintf(m_filesCentCsv.back(), "%u,",  m_Size);
+
+                    if (m_bTrigToA)
+                    {
+                        ToF = ((Float_t) ( m_ToAs[0] - m_trigTime)*25.0)/4096000;
+                        m_histCentSpectrum->Fill( ToF );
+                        m_centToTvsToF->Fill(ToF, ((Float_t) m_ToTs[0])/1e3 );
+                    }
+
+                    fprintf(m_filesCentCsv.back(), "\n");
+                    lineCounterCent++;
                 }
 
                 //
-                // multiple file creation
+                // writing raw data to a file
+
+                //
+                // single file creation
                 if (lineCounter % m_linesPerFile == 0 && !m_bSingleFile)
                 {
                     if (openCsv(dtStandard, TString::Format("%d", lineCounter / m_linesPerFile))) return -1;
                 }
 
                 //
-                // write actual data
-                if (m_bTrig)    fprintf(m_filesCsv.back(), "%u,",  m_trigCnt);
-                if (m_bTrigTime)fprintf(m_filesCsv.back(), "%llu,",m_trigTime);
-                if (m_bCol)     fprintf(m_filesCsv.back(), "%u,",  m_col);
-                if (m_bRow)     fprintf(m_filesCsv.back(), "%u,",  m_row);
-                if (m_bToA)     fprintf(m_filesCsv.back(), "%llu,",m_ToA);
-                if (m_bToT)     fprintf(m_filesCsv.back(), "%u,",  m_ToT);
-                if (m_bTrigToA) fprintf(m_filesCsv.back(), "%llu,",m_ToA - m_trigTime);
-
-                if (m_bTrigToA)
-                {
-                    ToF = ((Float_t) ( m_ToA - m_trigTime)/1e3 )*(25.0/4096);
-                    m_histSpectrum->Fill( ToF );
-                    m_ToTvsToF->Fill(ToF, ((Float_t) m_ToT)/1e3 );
-                }
-
-                fprintf(m_filesCsv.back(), "\n");
-                lineCounter++;
-            }
-        }
-
-        //
-        // loop entries in centTree
-        for (UInt_t entryCent = currChunkCent; entryCent < m_nCent; entryCent++)
-        {
-            m_centTree->GetEntry(entryCent);
-            if (entryCent % 10000 == 0 && m_nTime == 0) std::cout << "Centroid entry " << entryCent << " of " << m_nCent << " done!" << std::endl;
-
-            //
-            // dump all useless data
-            if ( m_nTime!= 0 && m_centToA < m_trigTime + lfTimeStart)
-            {
-                currChunkCent = entryCent;
-                continue;
-            }
-
-            //
-            // stop rawTree loop if further away then trigger+window
-            if ( m_nTime!= 0 && m_centToA > (m_trigTime +  lfTimeStart + lfTimeWindow))
-            {
-                currChunkCent = entryCent;
-                break;
-            }
-            else
-            {
-                //
-                // single file creation
-                if (m_bSingleFile && m_filesCentCsv.size() == 0)
-                {
-                    if (openCsv(dtCent)) return -1;
-                }
-
-                //
                 // multiple file creation
-                if ((lineCounterCent % m_linesPerFile == 0) && !m_bSingleFile)
+                if (m_bSingleFile && m_filesCsv.size() == 0)
                 {
-                    if (openCsv(dtCent, TString::Format("%d", lineCounterCent / m_linesPerFile))) return -1;
+                    if (openCsv(dtStandard)) return -1;
                 }
 
                 //
-                // write actual data
-                if (m_bTrig)    fprintf(m_filesCentCsv.back(), "%u,",  m_trigCnt);
-                if (m_bTrigTime)fprintf(m_filesCentCsv.back(), "%llu,",m_trigTime);
-                if (m_bCol)     fprintf(m_filesCentCsv.back(), "%u,",  m_centCol);
-                if (m_bRow)     fprintf(m_filesCentCsv.back(), "%u,",  m_centRow);
-                if (m_bToA)     fprintf(m_filesCentCsv.back(), "%llu,",m_centToA);
-                if (m_bToT)     fprintf(m_filesCentCsv.back(), "%u,",  m_centToT);
-                if (m_bTrigToA) fprintf(m_filesCentCsv.back(), "%llu,",m_centToA - m_trigTime);
-                if (m_bCentroid)fprintf(m_filesCentCsv.back(), "%u,",  m_centSize);
-
-                if (m_bTrigToA)
+                // write raw data
+                for (UInt_t entryRaw = 0; entryRaw < m_Size; entryRaw++)
                 {
-                    ToF = ((Float_t) ( m_centToA - m_trigTime)/1e3 )*(25.0/4096);
-                    m_histCentSpectrum->Fill( ToF );
-                    m_centToTvsToF->Fill(ToF, ((Float_t) m_centToT)/1e3 );
+                    if (m_bTrig)    fprintf(m_filesCsv.back(), "%u,",  m_trigCnt);
+                    if (m_bTrigTime)fprintf(m_filesCsv.back(), "%llu,",m_trigTime);
+                    if (m_bCol)     fprintf(m_filesCsv.back(), "%u,",  m_Cols[entryRaw]);
+                    if (m_bRow)     fprintf(m_filesCsv.back(), "%u,",  m_Rows[entryRaw]);
+                    if (m_bToA)     fprintf(m_filesCsv.back(), "%llu,",m_ToAs[entryRaw]);
+                    if (m_bToT)     fprintf(m_filesCsv.back(), "%u,",  m_ToTs[entryRaw]);
+                    if (m_bTrigToA) fprintf(m_filesCsv.back(), "%llu,",m_ToAs[entryRaw] - m_trigTime);
+
+                    if (m_bTrigToA)
+                    {
+                        ToF = ((Float_t) ( m_ToAs[entryRaw] - m_trigTime)* 25.0 )/4096000;
+                        m_histSpectrum->Fill( ToF );
+                        m_ToTvsToF->Fill(ToF, ((Float_t) m_ToTs[entryRaw])/1e3 );
+                    }
+
+                    fprintf(m_filesCsv.back(), "\n");
+                    lineCounter++;
                 }
 
-                fprintf(m_filesCentCsv.back(), "\n");
-                lineCounterCent++;
             }
         }
 
@@ -1125,9 +1142,7 @@ Int_t DataProcess::processRoot()
         entryTime++;
     }
 
-    finishMsg(m_fileNameRoot,"processing root raw", lineCounter, m_filesCsv.size());
-    if (m_bCentroid)
-        finishMsg(m_fileNameRoot,"processing root centroid", lineCounter, m_filesCentCsv.size());
+    finishMsg(m_fileNameRoot,"processing root raw", lineCounterCent, m_filesCsv.size());
 
     return 0;
 }
@@ -1139,7 +1154,7 @@ void DataProcess::finishMsg(TString fileName, TString operation, UInt_t events, 
     std::cout << "==============================================="  << std::endl;
     std::cout << "====== "<< operation << " IS DONE !!!  ==========="  << std::endl;
     std::cout << "==============================================="  << std::endl;
-    std::cout << "====  " << events << " events from total of " << m_nRaw << " selected!"  << std::endl;
+    std::cout << "====  " << events << " events from total of " << m_nCent << " selected!"  << std::endl;
     if (operation == "processing data")
     {
         std::cout << "=========== " << fileCounter << " FILE(S) PROCESSED!!! ============"  << std::endl;

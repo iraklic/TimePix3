@@ -69,12 +69,12 @@ private:
     Int_t openCsv(DataType type = dtStandard, TString fileCounter = "");
     Int_t openRoot();
 
-    void findCluster(UInt_t index, UInt_t stop, deque<UInt_t >* cols, deque<UInt_t >* rows, deque<Bool_t >* centered, deque<UInt_t >* indices);
+    void  findCluster(UInt_t index, UInt_t stop, deque<UInt_t >* cols, deque<UInt_t >* rows, deque<Bool_t >* centered, deque<UInt_t >* indices);
     Int_t processDat();
     Int_t skipHeader();
 
     Int_t processRoot();
-    void plotStandardData();
+    void  plotStandardData();
 
     void closeDat();
     void closeCsv();
@@ -136,7 +136,6 @@ private:
     //
     // ROOT trees
     TTree* m_rawTree;
-    TTree* m_centTree;
     TTree* m_timeTree;
 
     UInt_t m_nRaw;
@@ -149,10 +148,17 @@ private:
     TH2F* m_pixelMapToT;
     TH2F* m_pixelMapToA;
 
-    TH2I* m_pixelMapCent;
-
     TH1I* m_histToT;
     TH1I* m_histToA;
+
+    TH2I* m_pixelCentMap;
+    TH2F* m_pixelCentMapToT;
+    TH2F* m_pixelCentMapToA;
+
+    TH1I* m_histCentToT;
+    TH1I* m_histCentToA;
+
+    TH2F* m_histCentToTvsToA;
 
     TH1I* m_histTrigger;
 
@@ -169,11 +175,11 @@ private:
     UInt_t      m_ToT;
     ULong64_t   m_ToA;
 
-    UInt_t      m_centRow;
-    UInt_t      m_centCol;
-    UInt_t      m_centSize;
-    UInt_t      m_centToT;
-    ULong64_t   m_centToA;
+    UInt_t      m_Rows[MAXHITS];
+    UInt_t      m_Cols[MAXHITS];
+    UInt_t      m_Size;
+    UInt_t      m_ToTs[MAXHITS];
+    ULong64_t   m_ToAs[MAXHITS];
 
     //
     // trigger data
