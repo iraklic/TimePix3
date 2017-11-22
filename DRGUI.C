@@ -20,13 +20,6 @@
 #include <deque>
 #include "dataprocess.h"
 
-void DRGUI() {
-    //
-    // Initialize library
-//    gROOT->ProcessLine(".L dataprocess.cpp+");
-
-    new DRGui();
-}
 
 const char * fileTypes[] = {
         "data files", "*.dat",
@@ -114,6 +107,7 @@ public:
         void SelectAll(Bool_t);
 	void SelectSingleFile(Bool_t);
 	void SelectNoTrigWindow(Bool_t);
+        void SelectCent(Bool_t);
 
         void SelectCombined(Bool_t);
 
@@ -125,6 +119,14 @@ private:
         TString m_infoMsg;
         TObjString m_inputNames[32];
 };
+
+void DRGUI() {
+    //
+    // Initialize library
+//    gROOT->ProcessLine(".L dataprocess.cpp+");
+
+    new DRGui();
+}
 
 DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	SetCleanup(kDeepCleanup);
@@ -357,19 +359,19 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	MapRaised();
 }
 
-void DRGui::ApplyCutsWindow(char * val){ timeWindow = atof(abs(val)); }
-void DRGui::ApplyCutsStart(char * val) { timeStart  = atof(abs(val)); }
-void DRGui::ApplyCutsLines(char * val) { linesPerFile = atoi(abs(val)); }
+void DRGui::ApplyCutsWindow(char * val){ timeWindow = abs(atof(val)); }
+void DRGui::ApplyCutsStart(char * val) { timeStart  = abs(atof(val)); }
+void DRGui::ApplyCutsLines(char * val) { linesPerFile = abs(atoi(val)); }
 
-void DRGui::ApplyCutsCentroidPixel(char * val) { m_gapPix = atoi(abs(val)); }
-void DRGui::ApplyCutsCentroidTime (char * val) { m_gapTime  = atof(abs(val)); }
+void DRGui::ApplyCutsCentroidPixel(char * val) { m_gapPix = abs(atoi(val)); }
+void DRGui::ApplyCutsCentroidTime (char * val) { m_gapTime  = abs(atof(val)); }
 
 void DRGui::SelectCol(Bool_t check)      { bCol = check; }
 void DRGui::SelectRow(Bool_t check)      { bRow = check; }
 void DRGui::SelectToA(Bool_t check)      { bToA = check; }
 void DRGui::SelectToT(Bool_t check)      { bToT = check; }
 void DRGui::SelectTrig(Bool_t check)     { bTrig = check; }
-void DRGui::SelecTtrigTime(Bool_t check) { bTrigTime = check; }
+void DRGui::SelectTrigTime(Bool_t check) { bTrigTime = check; }
 void DRGui::SelectTrigToA(Bool_t check)  { bTrigToA = check; }
 
 void DRGui::SelectCent(Bool_t check)    { if (check) bCentroid = check; }
@@ -471,7 +473,7 @@ void DRGui::ProcessNames()
         if (fileName.EndsWith(".root") || fileName.EndsWith(".dat") || fileName.EndsWith(".tpx3"))
         {
             cout << fileName << " " << inputNumber << endl;
-            m_inputNames[inputNumber++] = fileName;
+            m_inputNames[inputNumber++].SetString(fileName);
         }
         else
         {
