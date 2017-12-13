@@ -823,13 +823,6 @@ Int_t DataProcess::processDat()
                 {
                     // get all hits in one time window
                     UInt_t j = 0;
-                    if (((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 > 0 && ((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 < 250)
-                    {
-                        std::cout << "#########################" << std::endl;
-                        std::cout << "#########################" << std::endl;
-                        std::cout << "  front: " << ((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 << std::endl;
-                    }
-
                     while (!Centered.front() && j < Cols.size())
                     {
                         // reaching the window gap
@@ -838,16 +831,7 @@ Int_t DataProcess::processDat()
                             break;
                         }
 
-                        if (((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 > 0 && ((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 < 250)
-                        {
-                            std::cout << "  j: " << j << " , ToAs: " << ((ToAs[j]*25.0/4096e9)-2.89843530)*1e9 << ", centered: " << Centered[j] <<std::endl;
-                        }
-
                         j++;
-                    }
-                    if (((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 > 0 && ((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 < 250)
-                    {
-                        std::cout << "#########################" << std::endl;
                     }
 
                     // find cluster obtaining index i (current pixel always in the cluster - if not chosen in the previous run)
@@ -913,11 +897,6 @@ Int_t DataProcess::processDat()
                         swap(m_Rows[k],m_Rows[0]);
                         swap(m_ToTs[k],m_ToTs[0]);
                         swap(m_ToAs[k],m_ToAs[0]);
-                    }
-
-                    if (((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 > 0 && ((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 < 250)
-                    {
-                        std::cout << "  k: " << k << " , ToAs: " << ((m_ToAs[k]*25.0/4096e9)-2.89843530)*1e9 << ", centered: " << centeredIndices.front() << ",  col: " << m_Cols[k] << ",  row: " << m_Rows[k] << std::endl;
                     }
 
                     centeredIndices.pop_front();

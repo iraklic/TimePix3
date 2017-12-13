@@ -143,7 +143,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         bTrigTime = true;
         bTrigToA = true;
 	bNoTrigWindow = false;
-	bSingleFile = false;
+        bSingleFile = false;
         bCombineInput = false;
         bCentroid = false;
         inputNumber = 0;
@@ -312,7 +312,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         combGroup->SetTitlePos(TGGroupFrame::kCenter);
         TGCheckButton * combIn = new TGCheckButton(combGroup, "Combine .dat files");
 
-        combIn->SetOn();
+        combIn->SetOn(bCombineInput);
 
         combGroup->AddFrame(combIn,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 
