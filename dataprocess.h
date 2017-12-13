@@ -69,7 +69,7 @@ private:
     Int_t openCsv(DataType type = dtStandard, TString fileCounter = "");
     Int_t openRoot();
 
-    void  findCluster(UInt_t index, UInt_t stop, deque<UInt_t >* cols, deque<UInt_t >* rows, deque<Bool_t >* centered, deque<UInt_t >* indices);
+    void  findCluster(UInt_t index, UInt_t stop, deque<UInt_t >* cols, deque<UInt_t >* rows, deque<ULong64_t >* toas, deque<UInt_t> *tots, deque<Bool_t >* centered, deque<UInt_t >* indices);
     Int_t processDat();
     Int_t skipHeader();
 
