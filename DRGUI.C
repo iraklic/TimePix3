@@ -49,7 +49,7 @@ class TextMargin : public TGHorizontalFrame {
                 else { label->Disable(); fEntry->SetState(kFALSE); }
 	}
 
-        ClassDef(TextMargin, 0);
+//        ClassDef(TextMargin, 0);
 };
 
 class DRGui : public TGMainFrame {
@@ -95,6 +95,9 @@ public:
         void ApplyCutsStart(char *);
 	void ApplyCutsLines(char *);
 
+        void ApplyCutsCentroidPixel(char * val);
+        void ApplyCutsCentroidTime(char * val);
+
 	void SelectCol(Bool_t);
 	void SelectRow(Bool_t);
 	void SelectToA(Bool_t);
@@ -113,7 +116,7 @@ public:
 
 	void Browse();
 
-        ClassDef(DRGui, 0);
+//        ClassDef(DRGui, 0);
 
 private:
         TString m_infoMsg;
@@ -237,7 +240,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         toa     ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectToA(Bool_t)");
         tot     ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectToT(Bool_t)");
         trig    ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectTrig(Bool_t)");
-        trigTime->Connect("Toggled(Bool_t)", "DRGui", this, "SelecTtrigTime(Bool_t)");
+        trigTime->Connect("Toggled(Bool_t)", "DRGui", this, "SelectTrigTime(Bool_t)");
         trigToA ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectTrigToA(Bool_t)");
 
         variables->AddFrame(varsGroup, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
@@ -309,7 +312,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         combGroup->SetTitlePos(TGGroupFrame::kCenter);
         TGCheckButton * combIn = new TGCheckButton(combGroup, "Combine .dat files");
 
-        combIn->SetOn(kFALSE);
+        combIn->SetOn();
 
         combGroup->AddFrame(combIn,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 

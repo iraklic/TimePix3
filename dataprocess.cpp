@@ -1,6 +1,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <algorithm>
+#include <cmath>
 
 #include "dataprocess.h"
 
@@ -84,7 +85,7 @@ Int_t DataProcess::setOptions(Bool_t bCol,
     m_bTrigTime     = bTrigTime;
     m_bTrigToA      = bTrigToA;
     m_bCentroid     = bCentroid;
-    m_gapTime       = gapTime * 163840; // conversion from us ToA size
+    m_gapTime       = (ULong64_t) (gapTime * 163840); // conversion from us ToA size
     m_gapPix        = gapPixel;
     m_bNoTrigWindow = bNoTrigWindow;
     m_bSingleFile   = singleFile;
@@ -538,15 +539,41 @@ Int_t DataProcess::skipHeader()
 }
 
 // find clusters recursively
-void DataProcess::findCluster(UInt_t index, UInt_t stop, deque<UInt_t >* cols, deque<UInt_t >* rows, deque<Bool_t >* centered, deque<UInt_t >* indices)
+void DataProcess::findCluster(UInt_t index, UInt_t stop, deque<UInt_t >* cols, deque<UInt_t >* rows, deque<ULong64_t >* toas, deque<UInt_t >* tots, deque<Bool_t >* centered, deque<UInt_t >* indices)
 {
+    Int_t colInd, rowInd, totInd;
+    Int_t colK, rowK, totK;
+    ULong64_t toaInd, toaK, toa, toaDiff;
+
+    Int_t gap = 1 + (Int_t) m_gapPix;
+
+    colInd = (Int_t) cols->at(index);
+    rowInd = (Int_t) rows->at(index);
+    toaInd = toas->at(index);
+    totInd = tots->at(index);
+    toa = 81920;
+
     for (UInt_t k = 0; k < stop; k++)
     {
-        if (!(centered->at(k)) && abs((int)cols->at(index) - (int)cols->at(k)) <= (1 + m_gapPix) && abs((int)rows->at(index ) - (int)rows->at(k)) <= (1 + m_gapPix))
+        colK = (Int_t) cols->at(k);
+        rowK = (Int_t) rows->at(k);
+        toaK = toas->at(k);
+        totK = tots->at(k);
+
+        if (toaK > toaInd)
+        {
+            toaDiff = toaK - toaInd;
+        }
+        else
+        {
+            toaDiff = toaInd - toaK;
+        }
+
+        if (!(centered->at(k)) && ((std::abs(colInd - colK) <= gap) && (std::abs(rowInd - rowK) <= gap )) && toaDiff < toa)
         {
             centered->at(k) = kTRUE;
             indices->push_back(k);
-            findCluster(k,stop,cols,rows,centered,indices);
+            findCluster(k,stop,cols,rows,toas,tots,centered,indices);
         }
     }
 }
@@ -796,6 +823,13 @@ Int_t DataProcess::processDat()
                 {
                     // get all hits in one time window
                     UInt_t j = 0;
+                    if (((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 > 0 && ((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 < 250)
+                    {
+                        std::cout << "#########################" << std::endl;
+                        std::cout << "#########################" << std::endl;
+                        std::cout << "  front: " << ((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 << std::endl;
+                    }
+
                     while (!Centered.front() && j < Cols.size())
                     {
                         // reaching the window gap
@@ -803,7 +837,17 @@ Int_t DataProcess::processDat()
                         {
                             break;
                         }
+
+                        if (((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 > 0 && ((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 < 250)
+                        {
+                            std::cout << "  j: " << j << " , ToAs: " << ((ToAs[j]*25.0/4096e9)-2.89843530)*1e9 << ", centered: " << Centered[j] <<std::endl;
+                        }
+
                         j++;
+                    }
+                    if (((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 > 0 && ((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 < 250)
+                    {
+                        std::cout << "#########################" << std::endl;
                     }
 
                     // find cluster obtaining index i (current pixel always in the cluster - if not chosen in the previous run)
@@ -813,10 +857,7 @@ Int_t DataProcess::processDat()
                         Centered.front() = kTRUE;
                     }
 
-                    for (UInt_t k = 0; k < j; k++)
-                    {
-                        findCluster(k, j, &Cols, &Rows, &Centered, &centeredIndices);
-                    }
+                    findCluster(0, j, &Cols, &Rows, &ToAs, &ToTs, &Centered, &centeredIndices);
 
                     // get centroid
                     ToT       = 0;
@@ -829,8 +870,11 @@ Int_t DataProcess::processDat()
                         posY     += ToTs[centeredIndices[k]]*Rows[centeredIndices[k]];
                     }
 
-                    posX = (UInt_t) ((((Float_t) posX) / ToT) + 0.5);
-                    posY = (UInt_t) ((((Float_t) posY) / ToT) + 0.5);
+                    if (centeredIndices.size() > 0 )
+                    {
+                        posX = (UInt_t) ((((Float_t) posX) / ToT) + 0.5);
+                        posY = (UInt_t) ((((Float_t) posY) / ToT) + 0.5);
+                    }
                 }
                 else
                 {
@@ -869,6 +913,11 @@ Int_t DataProcess::processDat()
                         swap(m_Rows[k],m_Rows[0]);
                         swap(m_ToTs[k],m_ToTs[0]);
                         swap(m_ToAs[k],m_ToAs[0]);
+                    }
+
+                    if (((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 > 0 && ((ToAs.front()*25.0/4096e9)-2.89843530)*1e9 < 250)
+                    {
+                        std::cout << "  k: " << k << " , ToAs: " << ((m_ToAs[k]*25.0/4096e9)-2.89843530)*1e9 << ", centered: " << centeredIndices.front() << ",  col: " << m_Cols[k] << ",  row: " << m_Rows[k] << std::endl;
                     }
 
                     centeredIndices.pop_front();
