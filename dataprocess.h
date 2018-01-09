@@ -137,6 +137,7 @@ private:
     // ROOT trees
     TTree* m_rawTree;
     TTree* m_timeTree;
+    TTree* m_procTree;
 
     UInt_t m_nRaw;
     UInt_t m_nCent;

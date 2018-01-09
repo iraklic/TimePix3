@@ -987,10 +987,21 @@ Int_t DataProcess::processRoot()
     Float_t binMin;
     Float_t binMax;
 
-    Float_t ToF;
+    Float_t ToF[MAXHITS];
 
     m_nCent = m_rawTree->GetEntries();
     m_nTime = m_timeTree->GetEntries();
+
+
+    m_procTree = new TTree("proctree", "Tpx3 camera, January 2018");
+    m_procTree->Branch("Size", &m_Size, "Size/i");
+    m_procTree->Branch("Col",   m_Cols, "Col[Size]/i");
+    m_procTree->Branch("Row",   m_Rows, "Row[Size]/i");
+    m_procTree->Branch("ToT",   m_ToTs, "ToT[Size]/i");
+    m_procTree->Branch("ToA",   m_ToAs, "ToA[Size]/l");    // l for long unsigned
+    m_procTree->Branch("ToF",      ToF, "ToF[Size]/F");    // F for float
+    m_procTree->Branch("TrigCntr", &entryTime, "TrigCntr/i");
+    m_procTree->Branch("TrigTime", &m_trigTime,"TrigTime/l");
 
     if (!m_bCol && !m_bRow && !m_bToA && !m_bToT && !m_bTrigToA) m_nCent = 0;
 
@@ -1112,9 +1123,9 @@ Int_t DataProcess::processRoot()
 
                     if (m_bTrigToA)
                     {
-                        ToF = ((Float_t) ( m_ToAs[0] - m_trigTime)*25.0)/4096000;
-                        m_histCentSpectrum->Fill( ToF );
-                        m_centToTvsToF->Fill(ToF, ((Float_t) m_ToTs[0])/1e3 );
+                        ToF[0] = ((Float_t) ( m_ToAs[0] - m_trigTime)*25.0)/4096000;
+                        m_histCentSpectrum->Fill( ToF[0] );
+                        m_centToTvsToF->Fill(ToF[0], ((Float_t) m_ToTs[0])/1e3 );
                     }
 
                     fprintf(m_filesCentCsv.back(), "\n");
@@ -1152,13 +1163,20 @@ Int_t DataProcess::processRoot()
 
                     if (m_bTrigToA)
                     {
-                        ToF = ((Float_t) ( m_ToAs[entryRaw] - m_trigTime)* 25.0 )/4096000;
-                        m_histSpectrum->Fill( ToF );
-                        m_ToTvsToF->Fill(ToF, ((Float_t) m_ToTs[entryRaw])/1e3 );
+                        ToF[entryRaw] = ((Float_t) ( m_ToAs[entryRaw] - m_trigTime)* 25.0 )/4096000;
+                        m_histSpectrum->Fill( ToF[entryRaw] );
+                        m_ToTvsToF->Fill(ToF[entryRaw], ((Float_t) m_ToTs[entryRaw])/1e3 );
                     }
 
                     fprintf(m_filesCsv.back(), "\n");
                     lineCounter++;
+                }
+
+                m_procTree->Fill();
+
+                for (UInt_t entryRaw = 0; entryRaw < MAXHITS; entryRaw++)
+                {
+                    ToF[entryRaw] = 0;
                 }
 
             }
