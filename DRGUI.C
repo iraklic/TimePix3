@@ -71,6 +71,7 @@ public:
         bool bTrigTime;
         bool bTrigToA;
         bool bCentroid;
+        bool bProcTree;
 
         ProcType ptProcess;
         bool bCombineInput;
@@ -108,6 +109,7 @@ public:
         void SelectData(Bool_t);
         void SelectRoot(Bool_t);
         void SelectAll(Bool_t);
+        void SelectProcTree(Bool_t);
 	void SelectSingleFile(Bool_t);
 	void SelectNoTrigWindow(Bool_t);
         void SelectCent(Bool_t);
@@ -142,6 +144,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         bTrig = true;
         bTrigTime = true;
         bTrigToA = true;
+        bProcTree = false;
 	bNoTrigWindow = false;
         bSingleFile = false;
         bCombineInput = false;
@@ -253,9 +256,12 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         TGRadioButton * data    = new TGRadioButton(procGroup, "data");
         TGRadioButton * root    = new TGRadioButton(procGroup, "root");
 
+        TGCheckButton * procTree = new TGCheckButton(procGroup, "procTree");
+
         all ->SetOn();
         data->SetOn(kFALSE);
         root->SetOn(kFALSE);
+        procTree->SetOn(kFALSE);
 
         procGroup->AddFrame(all,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
         procGroup->AddFrame(data,   new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
@@ -264,6 +270,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         all     ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectAll(Bool_t)");
         data    ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectData(Bool_t)");
         root    ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectRoot(Bool_t)");
+        procTree->Connect("Toggled(Bool_t)", "DRGui", this, "SelectProcTree(Bool_t");
 
         procGroup->SetRadioButtonExclusive(kTRUE);
         variables->AddFrame(procGroup, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
@@ -381,6 +388,7 @@ void DRGui::SelectCent(Bool_t check)    { if (check) bCentroid = check; }
 void DRGui::SelectAll(Bool_t check)     { if (check) ptProcess = procAll; }
 void DRGui::SelectData(Bool_t check)    { if (check) ptProcess = procDat; }
 void DRGui::SelectRoot(Bool_t check)    { if (check) ptProcess = procRoot; }
+void DRGui::SelectProcTree(Bool_t check){ bProcTree = check; }
 
 void DRGui::SelectCombined(Bool_t check)    { if (check) bCombineInput = check; }
 
@@ -430,7 +438,7 @@ void DRGui::RunReducer()
     {
         processor->setName(m_inputNames, inputNumber);
         processor->setProcess(ptProcess);
-        processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bCentroid, m_gapPix, m_gapTime, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
+        processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bProcTree, bCentroid, m_gapPix, m_gapTime, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
         processor->process();
     }
     else
@@ -447,7 +455,7 @@ void DRGui::RunReducer()
                 processor->setProcess(ptProcess);
             }
             processor->setName(tmpString);
-            processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bCentroid, m_gapPix, m_gapTime, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
+            processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bProcTree, bCentroid, m_gapPix, m_gapTime, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
             processor->process();
         }
     }

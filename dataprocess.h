@@ -49,6 +49,7 @@ public:
                       Bool_t bTrig = kTRUE,
                       Bool_t bTrigTime = kTRUE,
                       Bool_t bTrigToA = kTRUE,
+                      Bool_t bProcTree = kFALSE,
                       Bool_t bCentroid = kFALSE,
                       Int_t gapPixel = 0,
                       Float_t gapTime = 1.0,
@@ -100,6 +101,7 @@ private:
     Bool_t m_bTrig;
     Bool_t m_bTrigTime;
     Bool_t m_bTrigToA;
+    Bool_t m_bProcTree;
     Bool_t m_bCentroid;
     Bool_t m_bNoTrigWindow;
     Bool_t m_bSingleFile;

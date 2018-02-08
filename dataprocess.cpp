@@ -68,6 +68,7 @@ Int_t DataProcess::setOptions(Bool_t bCol,
                               Bool_t bTrig,
                               Bool_t bTrigTime,
                               Bool_t bTrigToA,
+                              Bool_t bProcTree,
                               Bool_t bCentroid,
                               Int_t  gapPixel,
                               Float_t gapTime,
@@ -84,6 +85,7 @@ Int_t DataProcess::setOptions(Bool_t bCol,
     m_bTrig         = bTrig;
     m_bTrigTime     = bTrigTime;
     m_bTrigToA      = bTrigToA;
+    m_bProcTree     = bProcTree;
     m_bCentroid     = bCentroid;
     m_gapTime       = (ULong64_t) (gapTime * 163840); // conversion from us ToA size
     m_gapPix        = gapPixel;
@@ -992,16 +994,20 @@ Int_t DataProcess::processRoot()
     m_nCent = m_rawTree->GetEntries();
     m_nTime = m_timeTree->GetEntries();
 
+    if (m_bProcTree)
+    {
+        std::cout << "Creating procTree" << std::endl;
 
-    m_procTree = new TTree("proctree", "Tpx3 camera, January 2018");
-    m_procTree->Branch("Size", &m_Size, "Size/i");
-    m_procTree->Branch("Col",   m_Cols, "Col[Size]/i");
-    m_procTree->Branch("Row",   m_Rows, "Row[Size]/i");
-    m_procTree->Branch("ToT",   m_ToTs, "ToT[Size]/i");
-    m_procTree->Branch("ToA",   m_ToAs, "ToA[Size]/l");    // l for long unsigned
-    m_procTree->Branch("ToF",      ToF, "ToF[Size]/F");    // F for float
-    m_procTree->Branch("TrigCntr", &entryTime, "TrigCntr/i");
-    m_procTree->Branch("TrigTime", &m_trigTime,"TrigTime/l");
+        m_procTree = new TTree("proctree", "Tpx3 camera, January 2018");
+        m_procTree->Branch("Size", &m_Size, "Size/i");
+        m_procTree->Branch("Col",   m_Cols, "Col[Size]/i");
+        m_procTree->Branch("Row",   m_Rows, "Row[Size]/i");
+        m_procTree->Branch("ToT",   m_ToTs, "ToT[Size]/i");
+        m_procTree->Branch("ToA",   m_ToAs, "ToA[Size]/l");    // l for long unsigned
+        m_procTree->Branch("ToF",      ToF, "ToF[Size]/F");    // F for float
+        m_procTree->Branch("TrigCntr", &entryTime, "TrigCntr/i");
+        m_procTree->Branch("TrigTime", &m_trigTime,"TrigTime/l");
+    }
 
     if (!m_bCol && !m_bRow && !m_bToA && !m_bToT && !m_bTrigToA) m_nCent = 0;
 
@@ -1172,7 +1178,10 @@ Int_t DataProcess::processRoot()
                     lineCounter++;
                 }
 
-                m_procTree->Fill();
+                if(m_bProcTree)
+                {
+                    m_procTree->Fill();
+                }
 
                 for (UInt_t entryRaw = 0; entryRaw < MAXHITS; entryRaw++)
                 {
