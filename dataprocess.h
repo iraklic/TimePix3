@@ -24,6 +24,13 @@ enum ProcType
     procAll     = 2
 };
 
+enum CorrType
+{
+    corrOff     = 0,
+    corrUse     = 1,
+    corrNew     = 2
+};
+
 enum DataType
 {
     dtDat  = 0,
@@ -31,6 +38,13 @@ enum DataType
     dtCent = 2,
 
     dtStandard = 3
+};
+
+struct LookupTable
+{
+    UInt_t    ToT;
+    Float_t  dToA;
+    Float_t  dCent;
 };
 
 class DataProcess
@@ -41,6 +55,7 @@ public:
     void setName(TString fileNameInput);
     void setName(TObjString *fileNameInput, Int_t size);
     void setProcess(ProcType process);
+    void setCorrection(CorrType correction, TString fileNameCorrection);
     void setNEntries(UInt_t nEntries);
     Int_t setOptions(Bool_t bCol = kTRUE,
                       Bool_t bRow = kTRUE,
@@ -66,6 +81,7 @@ private:
     void finishMsg(TString fileName, TString operation, UInt_t events, Int_t fileCounter = 1);
     ULong64_t roundToNs(ULong64_t number);
 
+    Int_t openCorr(Bool_t create = kTRUE);
     Int_t openDat(Int_t fileCounter = 0);
     Int_t openCsv(DataType type = dtStandard, TString fileCounter = "");
     Int_t openRoot();
@@ -77,6 +93,10 @@ private:
     Int_t processRoot();
     void  plotStandardData();
 
+    void loadCorrection();
+    void createCorrection();
+
+    void closeCorr();
     void closeDat();
     void closeCsv();
     void closeRoot();
@@ -85,6 +105,8 @@ private:
     //
     // global variables
     ProcType    m_process;
+    CorrType    m_correction;
+    TString     m_correctionName;
     UInt_t      m_maxEntries;
     TStopwatch  m_time;
     UInt_t      m_pixelCounter;
@@ -130,6 +152,7 @@ private:
 
     //
     // files
+    FILE*           m_fileCorr;
     deque<FILE* >   m_filesDat;
     TFile*          m_fileRoot;
     deque<FILE* >   m_filesCsv;
@@ -162,11 +185,14 @@ private:
     TH1I* m_histCentToA;
 
     TH2F* m_histCentToTvsToA;
+    TH2F* m_histCorrToTvsToA;
 
     TH1I* m_histTrigger;
 
     TH1F* m_histSpectrum;
     TH2F* m_ToTvsToF;
+    TH1F* m_histCorrSpectrum;
+    TH2F* m_corrToTvsToF;
 
     TH1F* m_histCentSpectrum;
     TH2F* m_centToTvsToF;
@@ -188,6 +214,10 @@ private:
     // trigger data
     UInt_t      m_trigCnt;
     ULong64_t   m_trigTime;
+
+    //
+    // correction table
+    deque<LookupTable> m_lookupTable;
 };
 
 #endif // DATAPROCESS_H

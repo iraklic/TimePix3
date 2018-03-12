@@ -56,6 +56,35 @@ void DataProcess::setProcess(ProcType process)
     m_process = process;
 }
 
+void DataProcess::setCorrection(CorrType correction, TString fileNameCorrection)
+{
+    m_correction = correction;
+    switch (m_correction)
+    {
+        case corrNew:
+        {
+            m_correctionName = "./lookupTable.csv";
+            std::cout << "Creating new correction" << std::endl;
+            openCorr(kTRUE);
+            break;
+        }
+        case corrUse:
+        {
+            m_correctionName = fileNameCorrection;
+            std::cout << "Using correction name " << m_correctionName << std::endl;
+            openCorr(kFALSE);
+            break;
+        }
+        case corrOff:
+        {
+            std::cout << "Ignoring correction" << std::endl;
+            break;
+        }
+        default:
+            break;
+    }
+}
+
 void DataProcess::setNEntries(UInt_t nEntries)
 {
     m_maxEntries = nEntries;
@@ -149,6 +178,9 @@ Int_t DataProcess::process()
 
             return -2;
     }
+
+    if (m_correction != corrOff)
+        closeCorr();
 
     closeRoot();
     closeCsv();
@@ -286,6 +318,27 @@ Int_t DataProcess::processFileNames()
     return 0;
 }
 
+Int_t DataProcess::openCorr(Bool_t create)
+{
+    if (create)
+        m_fileCorr = fopen(m_correctionName, "w+");
+    else
+    {
+        m_fileCorr = fopen(m_correctionName, "r");
+        loadCorrection();
+    }
+
+    if (m_fileCorr == NULL)
+    {
+        std::cout << " ========================================== " << std::endl;
+        std::cout << " == COULD NOT OPEN DAT, PLEASE CHECK IT === " << std::endl;
+        std::cout << " ========================================== " << std::endl;
+        return -1;
+    }
+
+    return 0;
+}
+
 Int_t DataProcess::openDat(Int_t fileCounter)
 {
     FILE* fileDat = fopen(m_fileNamePath + m_fileNameDat[fileCounter], "r");
@@ -406,7 +459,8 @@ Int_t DataProcess::openRoot()
         m_histCentToT       = new TH1I("histCentToT", "ToT", 200, 0, 5000);
         m_histCentToA       = new TH1I("histCentToA", "ToA", 1000, 0, 0);
 
-        m_histCentToTvsToA  = new TH2F("CentroidToTvsToA", "ToA:ToT", 110, -15.6, 156, 200, 0, 5000);
+        m_histCentToTvsToA  = new TH2F("CentroidToTvsToA", "ToA:ToT", 160, -15.625, 234.375, 400, 0, 10000);
+        m_histCorrToTvsToA  = new TH2F("CorrectedToTvsToA", "ToA:ToT", 160, -15.625, 234.375, 400, 0, 10000);
 
         m_histTrigger   = new TH1I("histTrigger", "Trigger", 1000, 0, 0);
     }
@@ -455,6 +509,7 @@ Int_t DataProcess::openRoot()
         m_histCentToA       = (TH1I *) m_fileRoot->Get("histCentToA");
 
         m_histCentToTvsToA  = (TH2F *) m_fileRoot->Get("CentroidToTvsToA");
+        m_histCorrToTvsToA  = (TH2F *) m_fileRoot->Get("CorrectedToTvsToA");
 
         m_histTrigger   = (TH1I *) m_fileRoot->Get("histTrigger");
     }
@@ -462,6 +517,16 @@ Int_t DataProcess::openRoot()
     m_fileRoot->cd();
 
     return 0;
+}
+
+void DataProcess::closeCorr()
+{
+    fclose(m_fileCorr);
+
+    while (m_lookupTable.size() != 0)
+    {
+        m_lookupTable.pop_front();
+    }
 }
 
 void DataProcess::closeDat()
@@ -961,6 +1026,10 @@ Int_t DataProcess::processDat()
                 std::cout << "===" << backjumpcnt << " backward time jumps found ==" << std::endl;
 
                 finishMsg(m_fileNameDat[curInput-1], "processing data", m_pixelCounter);
+
+                if (m_bCentroid) m_histCentToTvsToA->Write();
+                if (m_correction == corrNew)
+                    createCorrection();
                 return 0;
             }
         }
@@ -970,6 +1039,11 @@ Int_t DataProcess::processDat()
     m_nTime = m_timeTree->GetEntries();
     std::cout << "Not all pixel packets found" << std::endl;
     finishMsg(m_fileNameDat[curInput], "processing data", m_pixelCounter);
+
+    if (m_bCentroid) m_histCentToTvsToA->Write();
+    if (m_correction == corrNew)
+        createCorrection();
+
     return 0;
 }
 
@@ -989,6 +1063,9 @@ Int_t DataProcess::processRoot()
     Float_t binMin;
     Float_t binMax;
 
+    UInt_t   ToT;
+    Float_t dToA = 0;
+    Float_t dCent = 0;
     Float_t ToF[MAXHITS];
 
     m_nCent = m_rawTree->GetEntries();
@@ -1028,13 +1105,15 @@ Int_t DataProcess::processRoot()
             binMax   = ((Float_t) binCount/16000)*25 + m_timeStart;
         }
 
-        m_histSpectrum = new TH1F("histSpectrum", "ToF (ToA - trigTime)", binCount, binMin, binMax);
-        m_ToTvsToF     = new TH2F("mapToT_ToF", "ToT vs ToF", binCount, binMin, binMax, 400, 0, 10);
+        m_histSpectrum     = new TH1F("histSpectrum", "ToF (ToA - trigTime)", binCount, binMin, binMax);
+        m_ToTvsToF         = new TH2F("mapToT_ToF", "ToT vs ToF", binCount, binMin, binMax, 400, 0.0, 10.0);
+        m_histCorrSpectrum = new TH1F("histCorrSpectrum", "ToF corrected (ToA - trigTime)", binCount, binMin, binMax);
+        m_corrToTvsToF     = new TH2F("mapCorrToT_ToF", "ToT vs ToF corrected", binCount, binMin, binMax, 400, 0.0, 10.0);
 
         if (m_bCentroid)
         {
             m_histCentSpectrum = new TH1F("histCentSpectrum", "centroid ToF (ToA - trigTime)", binCount, binMin, binMax);
-            m_centToTvsToF     = new TH2F("mapCentToT_ToF", "centroid ToT vs ToF", binCount, binMin, binMax, 400, 0, 10);
+            m_centToTvsToF     = new TH2F("mapCentToT_ToF", "centroid ToT vs ToF", binCount, binMin, binMax, 400, 0.0, 10.0);
         }
     }
 
@@ -1127,11 +1206,20 @@ Int_t DataProcess::processRoot()
                     if (m_bTrigToA) fprintf(m_filesCentCsv.back(), "%llu,",m_ToAs[0] - m_trigTime);
                     if (m_bCentroid)fprintf(m_filesCentCsv.back(), "%u,",  m_Size);
 
+                    if (m_correction != corrOff)
+                    {
+                        ToT = m_ToTs[0] / 25.0;
+                        if (ToT < m_lookupTable.size())
+                            dCent = m_lookupTable.at(ToT).dCent;
+                        else
+                            dCent = 0;
+                    }
+
                     if (m_bTrigToA)
                     {
-                        ToF[0] = ((Float_t) ( m_ToAs[0] - m_trigTime)*25.0)/4096000;
+                        ToF[0] = (((Float_t) ( m_ToAs[0] - m_trigTime)*25.0)/4096000.0) + dCent;
                         m_histCentSpectrum->Fill( ToF[0] );
-                        m_centToTvsToF->Fill(ToF[0], ((Float_t) m_ToTs[0])/1e3 );
+                        m_centToTvsToF->Fill(ToF[0], ((Float_t) m_ToTs[0])/1000.0 );
                     }
 
                     fprintf(m_filesCentCsv.back(), "\n");
@@ -1167,11 +1255,33 @@ Int_t DataProcess::processRoot()
                     if (m_bToT)     fprintf(m_filesCsv.back(), "%u,",  m_ToTs[entryRaw]);
                     if (m_bTrigToA) fprintf(m_filesCsv.back(), "%llu,",m_ToAs[entryRaw] - m_trigTime);
 
+                    if (m_correction != corrOff)
+                    {
+                        ToT = m_ToTs[entryRaw] / 25.0;
+
+                        if (ToT < m_lookupTable.size())
+                        {
+                            dToA  = m_lookupTable.at(ToT).dToA;
+                            dCent = m_lookupTable.at(ToT).dCent;
+                        }
+                        else
+                        {
+                            dToA = 0;
+                            dCent = 0;
+                            std::cout << "Sth went wrong in choosing dToA" << std::endl;
+                        }
+
+                        m_histCorrToTvsToA->Fill(((m_ToAs[entryRaw] - m_ToAs[0])*(25.0/4096)) + (dToA * 1e3), ToT);
+                    }
+
                     if (m_bTrigToA)
                     {
-                        ToF[entryRaw] = ((Float_t) ( m_ToAs[entryRaw] - m_trigTime)* 25.0 )/4096000;
+                        ToF[entryRaw] = (((Float_t) ( m_ToAs[entryRaw] - m_trigTime )* 25.0 )/4096000.0);
                         m_histSpectrum->Fill( ToF[entryRaw] );
-                        m_ToTvsToF->Fill(ToF[entryRaw], ((Float_t) m_ToTs[entryRaw])/1e3 );
+                        m_ToTvsToF->Fill(ToF[entryRaw], ((Float_t) m_ToTs[entryRaw])/1000.0 );
+                        ToF[entryRaw] += dToA + dCent;
+                        m_histCorrSpectrum->Fill(ToF[entryRaw] );
+                        m_corrToTvsToF->Fill(ToF[entryRaw], ((Float_t) m_ToTs[entryRaw])/1000.0 );
                     }
 
                     fprintf(m_filesCsv.back(), "\n");
@@ -1233,4 +1343,81 @@ void DataProcess::StopLoop()
     std::cout << "======== LOOP SUCCESSFULLY STOPPED ============"  << std::endl;
     std::cout << "==============================================="  << std::endl;
     gSystem->ExitLoop();
+}
+
+void DataProcess::loadCorrection()
+{
+    std::cout << "==============================================="  << std::endl;
+    std::cout << "======== LOADING OLD CORRECTION TABLE ========="  << std::endl;
+    std::cout << "==============================================="  << std::endl;
+
+    LookupTable tmpLookupTable;
+    while ( fscanf(m_fileCorr,"%u, %f\n", &tmpLookupTable.ToT, &tmpLookupTable.dToA) == 2)
+    {
+        m_lookupTable.push_back(tmpLookupTable);
+        std::cout << "ToT: "  << tmpLookupTable.ToT << std::endl;
+        std::cout << "dToA: " << tmpLookupTable.dToA << std::endl;
+    }
+}
+
+void DataProcess::createCorrection()
+{
+    std::cout << "==============================================="  << std::endl;
+    std::cout << "======== CREATING NEW CORRECTION TABLE ========"  << std::endl;
+    std::cout << "==============================================="  << std::endl;
+
+    LookupTable tmpLookupTable;
+    int cntToT = 1;
+    Bool_t process = kTRUE;
+
+    tmpLookupTable.ToT  = 0;
+    tmpLookupTable.dToA = 0;
+    tmpLookupTable.dCent = 0;
+    m_lookupTable.push_back(tmpLookupTable);
+
+    std::cout << "==============================================="  << std::endl;
+
+    while (process)
+    {
+        m_histCentToTvsToA->GetYaxis()->SetRange(cntToT+1,cntToT+1);
+        m_histCentToTvsToA->GetXaxis()->SetRange(12,m_histCentToTvsToA->GetXaxis()->GetLast());
+
+        tmpLookupTable.ToT = cntToT * 25;
+//        tmpLookupTable.dToA = m_histCentToTvsToA->GetMean();
+        Int_t binx, biny, binz;
+        m_histCentToTvsToA->GetMaximumBin(binx, biny, binz);
+        tmpLookupTable.dToA = (1.5625 * ((Float_t) binx)) - 15.625;
+
+        m_histCentToTvsToA->GetXaxis()->SetRange(11,m_histCentToTvsToA->GetXaxis()->GetLast());
+        m_histCentToTvsToA->GetMaximumBin(binx, biny, binz);
+        tmpLookupTable.dCent = (1.5625 * ((Float_t) binx)) - 15.625;
+
+        m_lookupTable.push_back(tmpLookupTable);
+
+        if (++cntToT > 400)
+            process = kFALSE;
+    }
+
+    Float_t shift = m_lookupTable.at(60).dToA;
+
+    for (UInt_t index = 0; index < m_lookupTable.size(); index++)
+    {
+        // correcting to middle value
+        m_lookupTable.at(index).dToA = shift - m_lookupTable.at(index).dToA ;
+        m_lookupTable.at(index).dToA /= 1e3;
+
+        m_lookupTable.at(index).dCent = shift - m_lookupTable.at(index).dCent ;
+        m_lookupTable.at(index).dCent /= 1e3;
+
+        fprintf(m_fileCorr,"%u, %f\n", m_lookupTable.at(index).ToT, m_lookupTable.at(index).dToA);
+        std::cout << "==============================================="  << std::endl;
+        std::cout << "ToT: "  << m_lookupTable.at(index).ToT << std::endl;
+        std::cout << "ToA: "  << shift - (1e3 * m_lookupTable.at(index).dToA)  << std::endl;
+        std::cout << "dToA: " << m_lookupTable.at(index).dToA  << std::endl;
+        std::cout << "dCent: "<< m_lookupTable.at(index).dCent << std::endl;
+    }
+
+    m_histCentToTvsToA->GetYaxis()->SetRange();
+    m_histCentToTvsToA->GetXaxis()->SetRange();
+
 }

@@ -28,6 +28,11 @@ const char * fileTypes[] = {
 	0, 0
 };
 
+const char * fileTypesCorr[] = {
+        "lookup table", "*.csv",
+        0, 0
+};
+
 class TextMargin : public TGHorizontalFrame {
 	protected:
 	TGNumberEntry * fEntry;
@@ -57,7 +62,9 @@ protected:
 	TGTextButton * fButton;
         TGTextButton * sButton;
         TGTextButton * bButton;
+        TGTextButton * cButton;
         TGTextEdit * rootFile;
+        TGTextEdit * corrFile;
 
         TSignalHandler * sigHandler;
 
@@ -72,6 +79,11 @@ public:
         bool bTrigToA;
         bool bCentroid;
         bool bProcTree;
+
+        CorrType ctCorrection;
+        TString stCorrection;
+        TGRadioButton * off;
+        TGRadioButton * create;
 
         ProcType ptProcess;
         bool bCombineInput;
@@ -99,6 +111,10 @@ public:
         void ApplyCutsCentroidPixel(char * val);
         void ApplyCutsCentroidTime(char * val);
 
+        void SelectOff(Bool_t);
+        void SelectUse(Bool_t);
+        void SelectNew(Bool_t);
+
 	void SelectCol(Bool_t);
 	void SelectRow(Bool_t);
 	void SelectToA(Bool_t);
@@ -117,6 +133,7 @@ public:
         void SelectCombined(Bool_t);
 
 	void Browse();
+        void BrowseCorr();
 
 //        ClassDef(DRGui, 0);
 
@@ -133,7 +150,7 @@ void DRGUI() {
     new DRGui();
 }
 
-DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
+DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 20, kHorizontalFrame) {
 	SetCleanup(kDeepCleanup);
 
 //	All variables are selected by default
@@ -200,6 +217,44 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         sigHandler->Add();
         sigHandler->Connect("Notified()", "DRGui", this, "StopReducer()");
 
+//      CORRECTION USAGE
+        TGGroupFrame * corrGroup = new TGGroupFrame(contents, "Timewalk Correction");
+
+        corrGroup->SetTitlePos(TGGroupFrame::kCenter);
+
+        TGHButtonGroup * correction = new TGHButtonGroup(corrGroup);
+
+                        off    = new TGRadioButton(correction, "off");
+        TGRadioButton * use    = new TGRadioButton(correction, "use");
+                        create = new TGRadioButton(correction, "new");
+
+        off   ->SetOn();
+        use   ->SetOn(kFALSE);
+        create->SetOn(kFALSE);
+
+        correction->AddFrame(off   ,   new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        correction->AddFrame(use   ,   new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        correction->AddFrame(create,   new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+
+        off    ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectOff(Bool_t)");
+        use    ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectUse(Bool_t)");
+        create ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectNew(Bool_t)");
+        create->SetEnabled(kFALSE);
+
+        correction->SetRadioButtonExclusive(kTRUE);
+
+
+        corrFile = new TGTextEdit(corrGroup, 600,60);
+        cButton = new TGTextButton(corrGroup, "Browse Correction File");
+        corrGroup->AddFrame(correction, new TGLayoutHints(kLHintsExpandX));
+        corrGroup->AddFrame(corrFile, new TGLayoutHints(kLHintsExpandX));
+        corrGroup->AddFrame(cButton, new TGLayoutHints(kLHintsExpandX));
+
+        cButton->Connect("Clicked()", "DRGui", this, "BrowseCorr()");
+        cButton->SetEnabled(kFALSE);
+
+        contents->AddFrame(corrGroup, new TGLayoutHints(kLHintsExpandX));
+
 //	BROWSE FILE
         rootFile = new TGTextEdit(contents, 600,200, m_infoMsg);
         //rootFile->SetText();
@@ -263,9 +318,11 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         root->SetOn(kFALSE);
         procTree->SetOn(kFALSE);
 
-        procGroup->AddFrame(all,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
-        procGroup->AddFrame(data,   new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
-        procGroup->AddFrame(root,   new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        procGroup->AddFrame(procTree,new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+
+        procGroup->AddFrame(all,     new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        procGroup->AddFrame(data,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+        procGroup->AddFrame(root,    new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 
         all     ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectAll(Bool_t)");
         data    ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectData(Bool_t)");
@@ -285,9 +342,9 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         timeS->SetEntry(timeStart);
 	TGCheckButton * noTrigWindow = new TGCheckButton(cuts, "All Data");
 
-        cuts->AddFrame(timeS, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
-        cuts->AddFrame(timeW, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
-	cuts->AddFrame(noTrigWindow, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
+        cuts->AddFrame(timeS, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 0, 0, 2, 2));
+        cuts->AddFrame(timeW, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 0, 0, 2, 2));
+        cuts->AddFrame(noTrigWindow, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 0, 0, 2, 2));
 
         noTrigWindow->Connect("Toggled(Bool_t)", "TextMargin", timeS, "SetEnabled(Bool_t)");
         noTrigWindow->Connect("Toggled(Bool_t)", "TextMargin", timeW, "SetEnabled(Bool_t)");
@@ -295,7 +352,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         timeW->GetEntry()->Connect("TextChanged(char*)", "DRGui", this, "ApplyCutsWindow(char*)");
         timeS->GetEntry()->Connect("TextChanged(char*)", "DRGui", this, "ApplyCutsStart(char*)");
 
-	controls->AddFrame(cuts, new TGLayoutHints(kLHintsExpandX));
+        controls->AddFrame(cuts, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 
 //	OUTPUT CONTROL
 	TGGroupFrame * outControl = new TGGroupFrame(controls, "Output File");
@@ -304,15 +361,15 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 	TGCheckButton * singleFile = new TGCheckButton(outControl, "Single File");
         TextMargin * nLines = new TextMargin(outControl, "Lines per File");
 
-	outControl->AddFrame(singleFile, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
-	outControl->AddFrame(nLines, new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
+        outControl->AddFrame(singleFile, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 0, 0, 2, 2));
+        outControl->AddFrame(nLines, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 0, 0, 2, 2));
 
         nLines->SetEntry(linesPerFile);
 	nLines->GetEntry()->Connect("TextChanged(char*)", "DRGui", this, "ApplyCutsLines(char*)");
 	singleFile->Connect("Toggled(Bool_t)", "TextMargin", nLines, "SetEnabled(Bool_t)");
 	singleFile->Connect("Toggled(Bool_t)", "DRGui", this, "SelectSingleFile(Bool_t)");
 
-	controls->AddFrame(outControl, new TGLayoutHints(kLHintsExpandX));
+        controls->AddFrame(outControl, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 
 //      INPUT CONTROL
         TGVButtonGroup * combGroup = new TGVButtonGroup(controls, "Input File");
@@ -325,7 +382,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
 
         combIn->Connect("Toggled(Bool_t)", "DRGui", this, "SelectCombined(Bool_t)");
 
-        controls->AddFrame(combGroup, new TGLayoutHints(kLHintsExpandX));
+        controls->AddFrame(combGroup, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 
 //	CENTROID CONTROL
         TGGroupFrame * centControl = new TGGroupFrame(controls, "Centroiding");
@@ -335,9 +392,9 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         TextMargin * gapPix  = new TextMargin(centControl, "Allowed pix gap", TGNumberFormat::kNESInteger);
         TextMargin * gapTime = new TextMargin(centControl, "Time Window (micro s)", TGNumberFormat::kNESRealTwo);
 
-        centControl->AddFrame(cent,     new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
-        centControl->AddFrame(gapPix,   new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
-        centControl->AddFrame(gapTime,  new TGLayoutHints(kLHintsExpandX, 0, 0, 2, 2));
+        centControl->AddFrame(cent,     new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 0, 0, 2, 2));
+        centControl->AddFrame(gapPix,   new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 0, 0, 2, 2));
+        centControl->AddFrame(gapTime,  new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 0, 0, 2, 2));
 
         gapPix ->SetEntry(m_gapPix);
         gapPix ->SetEnabled(kTRUE);
@@ -350,7 +407,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 10, kHorizontalFrame) {
         cent    ->Connect("Toggled(Bool_t)", "TextMargin", gapTime, "SetEnabled(Bool_t)");
         cent    ->Connect("Toggled(Bool_t)", "DRGui",      this,    "SelectCent(Bool_t)");
 
-        controls->AddFrame(centControl, new TGLayoutHints(kLHintsExpandX));
+        controls->AddFrame(centControl, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 
 
 //	QUIT
@@ -384,16 +441,52 @@ void DRGui::SelectTrig(Bool_t check)     { bTrig = check; }
 void DRGui::SelectTrigTime(Bool_t check) { bTrigTime = check; }
 void DRGui::SelectTrigToA(Bool_t check)  { bTrigToA = check; }
 
-void DRGui::SelectCent(Bool_t check)    { if (check) bCentroid = check; }
+void DRGui::SelectCent(Bool_t check)    { bCentroid = check; if (!check) {off->SetOn(kTRUE); create->SetOn(kFALSE);} create->SetEnabled(check);}
 void DRGui::SelectAll(Bool_t check)     { if (check) ptProcess = procAll; }
 void DRGui::SelectData(Bool_t check)    { if (check) ptProcess = procDat; }
 void DRGui::SelectRoot(Bool_t check)    { if (check) ptProcess = procRoot; }
 void DRGui::SelectProcTree(Bool_t check){ bProcTree = check; }
 
+void DRGui::SelectOff(Bool_t check) { if (check) ctCorrection = corrOff; corrFile->Clear(); cButton->SetEnabled(!check); }
+void DRGui::SelectUse(Bool_t check) { if (check) ctCorrection = corrUse; corrFile->Clear(); cButton->SetEnabled(check); }
+void DRGui::SelectNew(Bool_t check) { if (check) ctCorrection = corrNew; corrFile->Clear(); cButton->SetEnabled(!check); }
+
 void DRGui::SelectCombined(Bool_t check)    { if (check) bCombineInput = check; }
 
 void DRGui::SelectSingleFile(Bool_t check) { bSingleFile = check; }
 void DRGui::SelectNoTrigWindow(Bool_t check) { bNoTrigWindow = check; }
+
+void DRGui::BrowseCorr()
+{
+        static TString dir(".");
+        TGFileInfo fileInfo;
+        fileInfo.SetMultipleSelection(kFALSE);
+        fileInfo.fFileTypes = fileTypesCorr;
+        fileInfo.fIniDir = StrDup(dir);
+
+        //
+        // browsing dialog - multiple files or one file only
+        new TGFileDialog(gClient->GetRoot(), this, kFDOpen, &fileInfo);
+        if (fileInfo.fMultipleSelection && fileInfo.fFileNamesList)
+        {
+            corrFile->Clear();
+
+            TObjString *el;
+            TIter next(fileInfo.fFileNamesList);
+            while ((el = (TObjString *) next()))
+            {
+              corrFile->AddLine(el->GetString());
+            }
+        }
+        else if (fileInfo.fFilename)
+        {
+            corrFile->Clear();
+            corrFile->AddLine(fileInfo.fFilename);
+        }
+        corrFile->NextChar();
+        corrFile->DelChar();
+        dir = fileInfo.fIniDir;
+}
 
 void DRGui::Browse()
 {
@@ -434,6 +527,8 @@ void DRGui::RunReducer()
     TStopwatch time;
     time.Start();
     DataProcess* processor = new DataProcess();
+    processor->setCorrection(ctCorrection, stCorrection);
+
     if (bCombineInput)
     {
         processor->setName(m_inputNames, inputNumber);
@@ -454,6 +549,7 @@ void DRGui::RunReducer()
             {
                 processor->setProcess(ptProcess);
             }
+
             processor->setName(tmpString);
             processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bProcTree, bCentroid, m_gapPix, m_gapTime, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
             processor->process();
@@ -471,11 +567,13 @@ void DRGui::ProcessNames()
 {
     TString fileName = "";
     TGText* inputFileNames = new TGText(rootFile->GetText());
+    TGText* correctionFileNames = new TGText(corrFile->GetText());
     TGLongPosition pos = TGLongPosition(0,0);
 
     Int_t lineNumber = 0;
     Int_t lineLength = 0;
     inputNumber = 0;
+    stCorrection = correctionFileNames->GetLine(pos,correctionFileNames->GetLineLength(0));
     while( (lineLength = inputFileNames->GetLineLength(lineNumber)) != -1)
     {
         pos = TGLongPosition(0,lineNumber++);
