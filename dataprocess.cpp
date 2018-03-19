@@ -404,6 +404,8 @@ Int_t DataProcess::openCsv(DataType type, TString fileCounter)
     if (m_bToA)     fprintf(files->back(), "#ToA,");
     if (m_bToT)     fprintf(files->back(), "#ToT,");
     if (m_bTrigToA) fprintf(files->back(), "#Trig-ToA,");
+    if (m_correction != corrOff && m_bTrigToA) fprintf(files->back(), "#cTrig-ToA,");
+
     if (type == dtCent)
         if (m_bCentroid)fprintf(files->back(), "#Centroid,");
     fprintf(files->back(), "\n");
@@ -1220,6 +1222,8 @@ Int_t DataProcess::processRoot()
                         ToF[0] = (((Float_t) ( m_ToAs[0] - m_trigTime)*25.0)/4096000.0) + dCent;
                         m_histCentSpectrum->Fill( ToF[0] );
                         m_centToTvsToF->Fill(ToF[0], ((Float_t) m_ToTs[0])/1000.0 );
+
+                        if (m_correction != corrOff) fprintf(m_filesCsv.back(), "%llu,",ToF[0]);
                     }
 
                     fprintf(m_filesCentCsv.back(), "\n");
@@ -1270,7 +1274,6 @@ Int_t DataProcess::processRoot()
                             dCent = 0;
                             std::cout << "Sth went wrong in choosing dToA" << std::endl;
                         }
-
                         m_histCorrToTvsToA->Fill(((m_ToAs[entryRaw] - m_ToAs[0])*(25.0/4096)) + (dToA * 1e3), ToT);
                     }
 
@@ -1282,6 +1285,8 @@ Int_t DataProcess::processRoot()
                         ToF[entryRaw] += dToA + dCent;
                         m_histCorrSpectrum->Fill(ToF[entryRaw] );
                         m_corrToTvsToF->Fill(ToF[entryRaw], ((Float_t) m_ToTs[entryRaw])/1000.0 );
+
+                        if (m_correction != corrOff) fprintf(m_filesCsv.back(), "%llu,",ToF[entryRaw]);
                     }
 
                     fprintf(m_filesCsv.back(), "\n");
