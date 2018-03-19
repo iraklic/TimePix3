@@ -98,6 +98,7 @@ Int_t DataProcess::setOptions(Bool_t bCol,
                               Bool_t bTrigTime,
                               Bool_t bTrigToA,
                               Bool_t bProcTree,
+                              Bool_t bCsv,
                               Bool_t bCentroid,
                               Int_t  gapPixel,
                               Float_t gapTime,
@@ -115,6 +116,7 @@ Int_t DataProcess::setOptions(Bool_t bCol,
     m_bTrigTime     = bTrigTime;
     m_bTrigToA      = bTrigToA;
     m_bProcTree     = bProcTree;
+    m_bCsv          = bCsv;
     m_bCentroid     = bCentroid;
     m_gapTime       = (ULong64_t) (gapTime * 163840); // conversion from us ToA size
     m_gapPix        = gapPixel;
@@ -402,9 +404,9 @@ Int_t DataProcess::openCsv(DataType type, TString fileCounter)
     if (m_bCol)     fprintf(files->back(), "#Col,");
     if (m_bRow)     fprintf(files->back(), "#Row,");
     if (m_bToA)     fprintf(files->back(), "#ToA,");
-    if (m_bToT)     fprintf(files->back(), "#ToT,");
-    if (m_bTrigToA) fprintf(files->back(), "#Trig-ToA,");
-    if (m_correction != corrOff && m_bTrigToA) fprintf(files->back(), "#cTrig-ToA,");
+    if (m_bToT)     fprintf(files->back(), "#ToT[arb],");
+    if (m_bTrigToA) fprintf(files->back(), "#Trig-ToA[arb],");
+    if (m_correction != corrOff && m_bTrigToA) fprintf(files->back(), "#cTrig-ToA[us],");
 
     if (type == dtCent)
         if (m_bCentroid)fprintf(files->back(), "#Centroid,");
@@ -1139,7 +1141,7 @@ Int_t DataProcess::processRoot()
                 m_timeTree->GetEntry(entryTime);
             }
 
-            if (m_nCent == 0)
+            if (m_bCsv && m_nCent == 0)
             {
                 //
                 // single file creation
@@ -1184,29 +1186,32 @@ Int_t DataProcess::processRoot()
                 // write centroid data
                 if (m_bCentroid)
                 {
-                    //
-                    // single file creation
-                    if (m_bSingleFile && m_filesCentCsv.size() == 0)
+                    if (m_bCsv )
                     {
-                        if (openCsv(dtCent)) return -1;
-                    }
+                        //
+                        // single file creation
+                        if (m_bSingleFile && m_filesCentCsv.size() == 0)
+                        {
+                            if (openCsv(dtCent)) return -1;
+                        }
 
-                    //
-                    // multiple file creation
-                    if ((lineCounterCent % m_linesPerFile == 0) && !m_bSingleFile)
-                    {
-                        if (openCsv(dtCent, TString::Format("%d", lineCounterCent / m_linesPerFile))) return -1;
+                        //
+                        // multiple file creation
+                        if ((lineCounterCent % m_linesPerFile == 0) && !m_bSingleFile)
+                        {
+                            if (openCsv(dtCent, TString::Format("%d", lineCounterCent / m_linesPerFile))) return -1;
+                        }
+                        //
+                        // write centroid data
+                        if (m_bTrig)    fprintf(m_filesCentCsv.back(), "%u,",  m_trigCnt);
+                        if (m_bTrigTime)fprintf(m_filesCentCsv.back(), "%llu,",m_trigTime);
+                        if (m_bCol)     fprintf(m_filesCentCsv.back(), "%u,",  m_Cols[0]);
+                        if (m_bRow)     fprintf(m_filesCentCsv.back(), "%u,",  m_Rows[0]);
+                        if (m_bToA)     fprintf(m_filesCentCsv.back(), "%llu,",m_ToAs[0]);
+                        if (m_bToT)     fprintf(m_filesCentCsv.back(), "%u,",  m_ToTs[0]);
+                        if (m_bTrigToA) fprintf(m_filesCentCsv.back(), "%llu,",m_ToAs[0] - m_trigTime);
+                        if (m_bCentroid)fprintf(m_filesCentCsv.back(), "%u,",  m_Size);
                     }
-                    //
-                    // write centroid data
-                    if (m_bTrig)    fprintf(m_filesCentCsv.back(), "%u,",  m_trigCnt);
-                    if (m_bTrigTime)fprintf(m_filesCentCsv.back(), "%llu,",m_trigTime);
-                    if (m_bCol)     fprintf(m_filesCentCsv.back(), "%u,",  m_Cols[0]);
-                    if (m_bRow)     fprintf(m_filesCentCsv.back(), "%u,",  m_Rows[0]);
-                    if (m_bToA)     fprintf(m_filesCentCsv.back(), "%llu,",m_ToAs[0]);
-                    if (m_bToT)     fprintf(m_filesCentCsv.back(), "%u,",  m_ToTs[0]);
-                    if (m_bTrigToA) fprintf(m_filesCentCsv.back(), "%llu,",m_ToAs[0] - m_trigTime);
-                    if (m_bCentroid)fprintf(m_filesCentCsv.back(), "%u,",  m_Size);
 
                     if (m_correction != corrOff)
                     {
@@ -1223,41 +1228,48 @@ Int_t DataProcess::processRoot()
                         m_histCentSpectrum->Fill( ToF[0] );
                         m_centToTvsToF->Fill(ToF[0], ((Float_t) m_ToTs[0])/1000.0 );
 
-                        if (m_correction != corrOff) fprintf(m_filesCsv.back(), "%llu,",ToF[0]);
+                        if (m_bCsv && m_correction != corrOff) fprintf(m_filesCsv.back(), "%f,",ToF[0]);
                     }
 
-                    fprintf(m_filesCentCsv.back(), "\n");
+                    if (m_bCsv )
+                        fprintf(m_filesCentCsv.back(), "\n");
                     lineCounterCent++;
                 }
 
-                //
-                // writing raw data to a file
-
-                //
-                // single file creation
-                if (lineCounter % m_linesPerFile == 0 && !m_bSingleFile)
+                if (m_bCsv)
                 {
-                    if (openCsv(dtStandard, TString::Format("%d", lineCounter / m_linesPerFile))) return -1;
-                }
+                    //
+                    // writing raw data to a file
 
-                //
-                // multiple file creation
-                if (m_bSingleFile && m_filesCsv.size() == 0)
-                {
-                    if (openCsv(dtStandard)) return -1;
+                    //
+                    // single file creation
+                    if (lineCounter % m_linesPerFile == 0 && !m_bSingleFile)
+                    {
+                        if (openCsv(dtStandard, TString::Format("%d", lineCounter / m_linesPerFile))) return -1;
+                    }
+
+                    //
+                    // multiple file creation
+                    if (m_bSingleFile && m_filesCsv.size() == 0)
+                    {
+                        if (openCsv(dtStandard)) return -1;
+                    }
                 }
 
                 //
                 // write raw data
                 for (UInt_t entryRaw = 0; entryRaw < m_Size; entryRaw++)
                 {
-                    if (m_bTrig)    fprintf(m_filesCsv.back(), "%u,",  m_trigCnt);
-                    if (m_bTrigTime)fprintf(m_filesCsv.back(), "%llu,",m_trigTime);
-                    if (m_bCol)     fprintf(m_filesCsv.back(), "%u,",  m_Cols[entryRaw]);
-                    if (m_bRow)     fprintf(m_filesCsv.back(), "%u,",  m_Rows[entryRaw]);
-                    if (m_bToA)     fprintf(m_filesCsv.back(), "%llu,",m_ToAs[entryRaw]);
-                    if (m_bToT)     fprintf(m_filesCsv.back(), "%u,",  m_ToTs[entryRaw]);
-                    if (m_bTrigToA) fprintf(m_filesCsv.back(), "%llu,",m_ToAs[entryRaw] - m_trigTime);
+                    if (m_bCsv)
+                    {
+                        if (m_bTrig)    fprintf(m_filesCsv.back(), "%u,",  m_trigCnt);
+                        if (m_bTrigTime)fprintf(m_filesCsv.back(), "%llu,",m_trigTime);
+                        if (m_bCol)     fprintf(m_filesCsv.back(), "%u,",  m_Cols[entryRaw]);
+                        if (m_bRow)     fprintf(m_filesCsv.back(), "%u,",  m_Rows[entryRaw]);
+                        if (m_bToA)     fprintf(m_filesCsv.back(), "%llu,",m_ToAs[entryRaw]);
+                        if (m_bToT)     fprintf(m_filesCsv.back(), "%u,",  m_ToTs[entryRaw]);
+                        if (m_bTrigToA) fprintf(m_filesCsv.back(), "%llu,",m_ToAs[entryRaw] - m_trigTime);
+                    }
 
                     if (m_correction != corrOff)
                     {
@@ -1286,10 +1298,11 @@ Int_t DataProcess::processRoot()
                         m_histCorrSpectrum->Fill(ToF[entryRaw] );
                         m_corrToTvsToF->Fill(ToF[entryRaw], ((Float_t) m_ToTs[entryRaw])/1000.0 );
 
-                        if (m_correction != corrOff) fprintf(m_filesCsv.back(), "%llu,",ToF[entryRaw]);
+                        if (m_bCsv && m_correction != corrOff) fprintf(m_filesCsv.back(), "%f,",ToF[entryRaw]);
                     }
 
-                    fprintf(m_filesCsv.back(), "\n");
+                    if (m_bCsv)
+                        fprintf(m_filesCsv.back(), "\n");
                     lineCounter++;
                 }
 

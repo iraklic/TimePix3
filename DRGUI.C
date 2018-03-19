@@ -79,6 +79,7 @@ public:
         bool bTrigToA;
         bool bCentroid;
         bool bProcTree;
+        bool bCsv;
 
         CorrType ctCorrection;
         TString stCorrection;
@@ -126,6 +127,7 @@ public:
         void SelectRoot(Bool_t);
         void SelectAll(Bool_t);
         void SelectProcTree(Bool_t);
+        void SelectCsv(Bool_t);
 	void SelectSingleFile(Bool_t);
 	void SelectNoTrigWindow(Bool_t);
         void SelectCent(Bool_t);
@@ -162,11 +164,14 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 20, kHorizontalFrame) {
         bTrigTime = true;
         bTrigToA = true;
         bProcTree = false;
+        bCsv = true;
 	bNoTrigWindow = false;
         bSingleFile = false;
         bCombineInput = false;
         bCentroid = false;
         inputNumber = 0;
+
+        ctCorrection = corrOff;
 
         ptProcess = procAll;
 
@@ -312,11 +317,13 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 20, kHorizontalFrame) {
         TGRadioButton * root    = new TGRadioButton(procGroup, "root");
 
         TGCheckButton * procTree = new TGCheckButton(procGroup, "procTree");
+        TGCheckButton * csv      = new TGCheckButton(procGroup, "csv");
 
         all ->SetOn();
         data->SetOn(kFALSE);
         root->SetOn(kFALSE);
         procTree->SetOn(kFALSE);
+        csv->SetOn(kTRUE);
 
         procGroup->AddFrame(procTree,new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 
@@ -328,6 +335,7 @@ DRGui::DRGui() : TGMainFrame(gClient->GetRoot(), 10, 20, kHorizontalFrame) {
         data    ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectData(Bool_t)");
         root    ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectRoot(Bool_t)");
         procTree->Connect("Toggled(Bool_t)", "DRGui", this, "SelectProcTree(Bool_t");
+        csv     ->Connect("Toggled(Bool_t)", "DRGui", this, "SelectCsv(Bool_t");
 
         procGroup->SetRadioButtonExclusive(kTRUE);
         variables->AddFrame(procGroup, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
@@ -447,6 +455,8 @@ void DRGui::SelectData(Bool_t check)    { if (check) ptProcess = procDat; }
 void DRGui::SelectRoot(Bool_t check)    { if (check) ptProcess = procRoot; }
 void DRGui::SelectProcTree(Bool_t check){ bProcTree = check; }
 
+void DRGui::SelectCsv(Bool_t check){ bCsv = check; }
+
 void DRGui::SelectOff(Bool_t check) { if (check) ctCorrection = corrOff; corrFile->Clear(); cButton->SetEnabled(!check); }
 void DRGui::SelectUse(Bool_t check) { if (check) ctCorrection = corrUse; corrFile->Clear(); cButton->SetEnabled(check); }
 void DRGui::SelectNew(Bool_t check) { if (check) ctCorrection = corrNew; corrFile->Clear(); cButton->SetEnabled(!check); }
@@ -533,7 +543,7 @@ void DRGui::RunReducer()
     {
         processor->setName(m_inputNames, inputNumber);
         processor->setProcess(ptProcess);
-        processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bProcTree, bCentroid, m_gapPix, m_gapTime, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
+        processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bProcTree, bCsv, bCentroid, m_gapPix, m_gapTime, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
         processor->process();
     }
     else
@@ -551,7 +561,7 @@ void DRGui::RunReducer()
             }
 
             processor->setName(tmpString);
-            processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bProcTree, bCentroid, m_gapPix, m_gapTime, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
+            processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bProcTree, bCsv, bCentroid, m_gapPix, m_gapTime, bNoTrigWindow, timeWindow, timeStart, bSingleFile, linesPerFile);
             processor->process();
         }
     }
