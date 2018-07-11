@@ -14,7 +14,7 @@ using namespace std;
 
 DataProcess::DataProcess()
 {
-    m_maxEntries = 1000000000;
+    m_maxEntries = 0xFFFFFFFF;
     m_process = procAll;
     m_numInputs = 1;
 
