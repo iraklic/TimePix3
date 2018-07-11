@@ -43,7 +43,7 @@ void fastProcess(TString dirname)
             if (!file->IsDirectory() && fname.EndsWith(".dat"))
             {
                 std::cout << fname << " " << inputNumber << std::endl;
-                m_inputNames[inputNumber++].SetString(fname);
+                m_inputNames[inputNumber++].SetString(dirname+"/"+fname);
             }
         }
     }
