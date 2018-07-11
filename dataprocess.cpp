@@ -718,7 +718,7 @@ Int_t DataProcess::processDat()
         //
         // read entries, write out each 10^5
         retVal = fread( &pixdata, sizeof(ULong64_t), 1, m_filesDat.back());
-        if (m_pixelCounter % 100000 == 0) std::cout << "Count " << m_pixelCounter << std::endl;
+        if (m_pixelCounter % 100000 == 0) std::cout << "File "<< curInput << "/" << m_numInputs <<" Count " << m_pixelCounter << std::endl;
 
         //
         // reading data and saving them to deques or timeTrees
