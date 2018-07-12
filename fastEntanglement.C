@@ -3,7 +3,7 @@
 #include <TList.h>
 #include <TSystemDirectory.h>
 
-#define MAX_ENTRIES 1e6
+#define MAX_ENTRIES 1e8
 
 #include "entangled.h"
 
