@@ -261,7 +261,7 @@ void Entangled::Process()
 
     for (Int_t entry = 0; entry < Entries_; entry++)
     {
-        if (NEVENTS != 0 && entry >= maxEntries_)
+        if (maxEntries_ != 0 && entry >= maxEntries_)
             break;
         ScanEntry(entry);
     }
