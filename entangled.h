@@ -41,12 +41,12 @@
 class Entangled
 {
 public:
-    Entangled(TString fileName, UInt_t maxEntries = 0);
+    Entangled(TString fileName, TString areaDef, UInt_t maxEntries = 0);
     ~Entangled();
     void Process();
 
 private:
-    void Init(TString file);
+    void Init(TString file, TString areas);
 
     Bool_t PositionCheck(UInt_t area[4]);
     UInt_t FindPairs(UInt_t area[4], Int_t &entry);

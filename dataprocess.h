@@ -55,7 +55,7 @@ public:
     void setName(TString fileNameInput);
     void setName(TObjString *fileNameInput, Int_t size);
     void setProcess(ProcType process);
-    void setCorrection(CorrType correction, TString fileNameCorrection);
+    void setCorrection(CorrType correction, TString fileNameCorrection = "./lookupTable.csv");
     void setNEntries(UInt_t nEntries);
     Int_t setOptions(Bool_t bCol = kTRUE,
                       Bool_t bRow = kTRUE,
@@ -129,6 +129,7 @@ private:
     Bool_t m_bCentroid;
     Bool_t m_bNoTrigWindow;
     Bool_t m_bSingleFile;
+    Bool_t m_bCorrCsv;
 
     Float_t  m_timeWindow;
     Float_t  m_timeStart;

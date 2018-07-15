@@ -5,30 +5,31 @@
 
 #include "dataprocess.h"
 
-void fastProcess(TString dirname)
+const bool bCol = true;
+const bool bRow = true;
+const bool bToA = true;
+const bool bToT = true;
+const bool bTrig = false;
+const bool bTrigTime = false;
+const bool bTrigToA = true;
+const bool bNoTrigWindow = false;
+const bool bProcTree = true;
+const bool bCsv = false;
+
+const bool bCentroid = true;
+const int gapPix = 1;
+const float gapTime = 1.0;
+
+const float timeWindow = 60;
+const float timeStart = 0;
+const bool bSingleFile = true;
+
+void fastProcess(TString dirname, bool combine=kFALSE, int nthreads = 2)
 {
+    if (dirname.EndsWith("/"))
+        dirname.Replace(dirname.Last('/'),200,"");
+
     TObjString m_inputNames[32];
-//    TString m_inputNames = "~/Documents/Data_Acquired/TPX3/SBU/paper/coin16.root";
-
-    bool bCol = true;
-    bool bRow = true;
-    bool bToA = true;
-    bool bToT = true;
-    bool bTrig = false;
-    bool bTrigTime = false;
-    bool bTrigToA = true;
-    bool bNoTrigWindow = false;
-    bool bProcTree = true;
-    bool bCsv = false;
-
-    bool bCentroid = true;
-    int gapPix = 1;
-    float gapTime = 1.0;
-
-    float timeWindow = 60;
-    float timeStart = 0;
-    bool bSingleFile = true;
-
     int inputNumber = 0;
 
     TSystemDirectory dir(dirname, dirname);
@@ -42,16 +43,37 @@ void fastProcess(TString dirname)
         { fname = file->GetName();
             if (!file->IsDirectory() && fname.EndsWith(".dat"))
             {
-                std::cout << fname << " " << inputNumber << std::endl;
+                std::cout << fname << " " << inputNumber << " at " << dirname << std::endl;
                 m_inputNames[inputNumber++].SetString(dirname+"/"+fname);
             }
         }
     }
 
-    DataProcess* processor = new DataProcess();
 
-    processor->setName(m_inputNames, inputNumber);
-    processor->setProcess(ProcType::procDat);
-    processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bProcTree, bCsv, bCentroid, gapPix, gapTime, bNoTrigWindow, timeWindow, timeStart, bSingleFile);
-    processor->process();
+    if (combine)
+    {
+        DataProcess* processor = new DataProcess();
+        processor->setCorrection(CorrType::corrNew);
+        processor->setName(m_inputNames, inputNumber);
+        processor->setProcess(ProcType::procAll);
+        processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bProcTree, bCsv, bCentroid, gapPix, gapTime, bNoTrigWindow, timeWindow, timeStart, bSingleFile);
+        processor->process();
+    } else
+    {
+        auto multicoreProcess = [m_inputNames](int number)
+        {
+            DataProcess* processor = new DataProcess();
+            TString tmpString = m_inputNames[number].GetString();
+            processor->setCorrection(CorrType::corrNew, tmpString + "_LTcorr.csv");
+            processor->setProcess(ProcType::procAll);
+
+            processor->setName(tmpString);
+            processor->setOptions(bCol, bRow, bToT, bToA, bTrig, bTrigTime, bTrigToA, bProcTree, bCsv, bCentroid, gapPix, gapTime, bNoTrigWindow, timeWindow, timeStart, bSingleFile);
+            processor->process();
+            return 0;
+        };
+
+        ROOT::TProcessExecutor workers(nthreads);
+        workers.Map(multicoreProcess, ROOT::TSeqI(inputNumber));
+    }
 }

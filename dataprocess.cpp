@@ -26,6 +26,9 @@ DataProcess::DataProcess()
     m_trigCnt = 0;
     m_bFirstTrig = kFALSE;
     m_bDevID = kFALSE;
+
+    m_correction = corrOff;
+    m_bCorrCsv = kTRUE;
 }
 
 DataProcess::~DataProcess()
@@ -63,9 +66,17 @@ void DataProcess::setCorrection(CorrType correction, TString fileNameCorrection)
     {
         case corrNew:
         {
-            m_correctionName = "./lookupTable.csv";
+            m_correctionName = fileNameCorrection;
             std::cout << "Creating new correction" << std::endl;
-            openCorr(kTRUE);
+            if (fileNameCorrection.Sizeof() > 1 )
+            {
+                std::cout << " - with file" << m_correctionName << std::endl;
+                openCorr(kTRUE);
+            }
+            else
+            {
+                m_bCorrCsv = kFALSE;
+            }
             break;
         }
         case corrUse:
@@ -463,8 +474,8 @@ Int_t DataProcess::openRoot()
         m_histCentToT       = new TH1I("histCentToT", "ToT", 200, 0, 5000);
         m_histCentToA       = new TH1I("histCentToA", "ToA", 1000, 0, 0);
 
-        m_histCentToTvsToA  = new TH2F("CentroidToTvsToA", "ToA:ToT", 160, -15.625, 234.375, 400, 0, 10000);
-        m_histCorrToTvsToA  = new TH2F("CorrectedToTvsToA", "ToA:ToT", 160, -15.625, 234.375, 400, 0, 10000);
+        m_histCentToTvsToA  = new TH2F("CentroidToTvsToA", "ToA:ToT", 300, -234.375, 234.375, 400, 0, 10000);
+        m_histCorrToTvsToA  = new TH2F("CorrectedToTvsToA", "ToA:ToT", 300, -234.375, 234.375, 400, 0, 10000);
 
         m_histTrigger   = new TH1I("histTrigger", "Trigger", 1000, 0, 0);
     }
@@ -525,7 +536,8 @@ Int_t DataProcess::openRoot()
 
 void DataProcess::closeCorr()
 {
-    fclose(m_fileCorr);
+    if (m_bCorrCsv)
+        fclose(m_fileCorr);
 
     while (m_lookupTable.size() != 0)
     {
@@ -1001,7 +1013,7 @@ Int_t DataProcess::processDat()
                     m_histToT->Fill(m_ToTs[k]);
                     m_histToA->Fill(m_ToAs[k]);
 
-                    if (m_bCentroid) m_histCentToTvsToA->Fill((m_ToAs[k]-tmpToA)*(25.0/4096), ( m_ToTs[k]));
+                    if (m_bCentroid && k != 0) m_histCentToTvsToA->Fill((m_ToAs[k]-tmpToA)*(25.0/4096), ( m_ToTs[k]));
 
                     m_Cols[k] = 0;
                     m_Rows[k] = 0;
@@ -1074,6 +1086,8 @@ Int_t DataProcess::processRoot()
 
     m_nCent = m_rawTree->GetEntries();
     m_nTime = m_timeTree->GetEntries();
+
+    m_fileRoot->cd();
 
     if (m_bProcTree)
     {
@@ -1217,7 +1231,7 @@ Int_t DataProcess::processRoot()
                     {
                         ToT = m_ToTs[0] / 25.0;
                         if (ToT < m_lookupTable.size())
-                            dCent = m_lookupTable.at(ToT).dCent;
+                            dCent = m_lookupTable.at(ToT).dToA;
                         else
                             dCent = 0;
                     }
@@ -1258,6 +1272,7 @@ Int_t DataProcess::processRoot()
 
                 //
                 // write raw data
+                ULong64_t tmpToAs0 = m_ToAs[0];
                 for (UInt_t entryRaw = 0; entryRaw < m_Size; entryRaw++)
                 {
                     if (m_bCsv)
@@ -1278,15 +1293,19 @@ Int_t DataProcess::processRoot()
                         if (ToT < m_lookupTable.size())
                         {
                             dToA  = m_lookupTable.at(ToT).dToA;
-                            dCent = m_lookupTable.at(ToT).dCent;
+                            if (entryRaw != 0)
+                                dCent = m_lookupTable.at(m_ToTs[0] / 25.0).dToA;
+                            else
+                                dCent = 0;
                         }
                         else
                         {
                             dToA = 0;
                             dCent = 0;
-                            std::cout << "Sth went wrong in choosing dToA" << std::endl;
+                            std::cout << "Sth went wrong in choosing dToA: ToT == " << ToT << std::endl;
                         }
-                        m_histCorrToTvsToA->Fill(((m_ToAs[entryRaw] - m_ToAs[0])*(25.0/4096)) + (dToA * 1e3), ToT);
+                        if (entryRaw != 0)
+                            m_histCorrToTvsToA->Fill(((Float_t)(m_ToAs[entryRaw] - tmpToAs0)*(25.0/4096)) + (dToA * 1e3), m_ToTs[entryRaw]);
                     }
 
                     if (m_bTrigToA)
@@ -1300,6 +1319,8 @@ Int_t DataProcess::processRoot()
 
                         if (m_bCsv && m_correction != corrOff) fprintf(m_filesCsv.back(), "%f,",ToF[entryRaw]);
                     }
+
+                    m_ToAs[entryRaw] += (ULong64_t) ((1 + dCent + dToA)*(4096000.0/25.0));
 
                     if (m_bCsv)
                         fprintf(m_filesCsv.back(), "\n");
@@ -1387,6 +1408,8 @@ void DataProcess::createCorrection()
     LookupTable tmpLookupTable;
     int cntToT = 1;
     Bool_t process = kTRUE;
+    Int_t tmpBinContent;
+    Int_t binCounter;
 
     tmpLookupTable.ToT  = 0;
     tmpLookupTable.dToA = 0;
@@ -1398,17 +1421,31 @@ void DataProcess::createCorrection()
     while (process)
     {
         m_histCentToTvsToA->GetYaxis()->SetRange(cntToT+1,cntToT+1);
-        m_histCentToTvsToA->GetXaxis()->SetRange(12,m_histCentToTvsToA->GetXaxis()->GetLast());
+        m_histCentToTvsToA->GetXaxis()->SetRange(m_histCentToTvsToA->GetXaxis()->GetFirst(),m_histCentToTvsToA->GetXaxis()->GetLast());
 
         tmpLookupTable.ToT = cntToT * 25;
+        binCounter = 0;
+        tmpLookupTable.dToA = 0;
 //        tmpLookupTable.dToA = m_histCentToTvsToA->GetMean();
-        Int_t binx, biny, binz;
-        m_histCentToTvsToA->GetMaximumBin(binx, biny, binz);
-        tmpLookupTable.dToA = (1.5625 * ((Float_t) binx)) - 15.625;
+        for (Int_t binx = m_histCentToTvsToA->GetXaxis()->GetFirst(); binx < m_histCentToTvsToA->GetXaxis()->GetLast(); binx++)
+        {
+            tmpBinContent = m_histCentToTvsToA->GetBinContent(binx,cntToT+1);
+            if (tmpBinContent > 10)
+            {
+                tmpLookupTable.dToA += (((1.5625 * ((Float_t) binx)) - 234.375) * tmpBinContent);
+                binCounter += tmpBinContent;
+            }
+        }
+        if (binCounter != 0)
+            tmpLookupTable.dToA /= binCounter;
 
-        m_histCentToTvsToA->GetXaxis()->SetRange(11,m_histCentToTvsToA->GetXaxis()->GetLast());
-        m_histCentToTvsToA->GetMaximumBin(binx, biny, binz);
-        tmpLookupTable.dCent = (1.5625 * ((Float_t) binx)) - 15.625;
+//        Int_t binx, biny, binz;
+//        m_histCentToTvsToA->GetMaximumBin(binx, biny, binz);
+//        tmpLookupTable.dToA = (1.5625 * ((Float_t) binx)) - 15.625;
+
+//        m_histCentToTvsToA->GetXaxis()->SetRange(11,m_histCentToTvsToA->GetXaxis()->GetLast());
+//        m_histCentToTvsToA->GetMaximumBin(binx, biny, binz);
+//        tmpLookupTable.dCent = (1.5625 * ((Float_t) binx)) - 15.625;
 
         m_lookupTable.push_back(tmpLookupTable);
 
@@ -1416,8 +1453,7 @@ void DataProcess::createCorrection()
             process = kFALSE;
     }
 
-    Float_t shift = m_lookupTable.at(60).dToA;
-
+    Float_t shift = 0;//m_lookupTable.at(60).dToA;
     for (UInt_t index = 0; index < m_lookupTable.size(); index++)
     {
         // correcting to middle value
@@ -1427,12 +1463,13 @@ void DataProcess::createCorrection()
         m_lookupTable.at(index).dCent = shift - m_lookupTable.at(index).dCent ;
         m_lookupTable.at(index).dCent /= 1e3;
 
-        fprintf(m_fileCorr,"%u, %f\n", m_lookupTable.at(index).ToT, m_lookupTable.at(index).dToA);
+        if (m_bCorrCsv)
+            fprintf(m_fileCorr,"%u, %f\n", m_lookupTable.at(index).ToT, m_lookupTable.at(index).dToA);
         std::cout << "==============================================="  << std::endl;
         std::cout << "ToT: "  << m_lookupTable.at(index).ToT << std::endl;
-        std::cout << "ToA: "  << shift - (1e3 * m_lookupTable.at(index).dToA)  << std::endl;
+//        std::cout << "ToA: "  << shift - (1e3 * m_lookupTable.at(index).dToA)  << std::endl;
         std::cout << "dToA: " << m_lookupTable.at(index).dToA  << std::endl;
-        std::cout << "dCent: "<< m_lookupTable.at(index).dCent << std::endl;
+//        std::cout << "dCent: "<< m_lookupTable.at(index).dCent << std::endl;
     }
 
     m_histCentToTvsToA->GetYaxis()->SetRange();

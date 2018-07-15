@@ -5,13 +5,13 @@
 #include <TTree.h>
 #include <TThread.h>
 
-Entangled::Entangled(TString fileName, UInt_t maxEntries)
+Entangled::Entangled(TString fileName, TString areaDef, UInt_t maxEntries)
 {
     time_.Start();
     if (fileName.EndsWith(".root") && !fileName.EndsWith("_processed.root"))
     {
         std::cout << "Starting init: " << std::endl;
-        Init(fileName);
+        Init(fileName, areaDef);
 
         std::cout << "Starting entanglement processing: " << std::endl;
         Process();
@@ -43,7 +43,7 @@ Entangled::~Entangled()
     }
 }
 
-void Entangled::Init(TString file)
+void Entangled::Init(TString file, TString areas)
 {
     std::cout << "Reading file" << std::endl;
     inputName_ = file;
