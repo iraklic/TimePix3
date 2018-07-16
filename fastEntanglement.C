@@ -36,6 +36,7 @@ void fastEntanglement(TString dirname, TString treeType = "rawtree", int nthread
     auto multicoreProcess = [m_inputNames, treeType](int number)
     {
         Entangled* processor = new Entangled(m_inputNames[number].GetString(), treeType, MAX_ENTRIES);
+        return 0;
     };
 
     ROOT::TProcessExecutor workers(nthreads);
