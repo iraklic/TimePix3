@@ -7,11 +7,10 @@
 #include <TFile.h>
 #include <TTree.h>
 
-#define N_THREADS 4
 #define MAX_HITS  65536      // minimal value for sorting 65536
 #define MAX_FILES 256
 #define ENTRY_LOOP 150
-#define MAX_DIFF    156.25//15600 //936        //ns
+#define MAX_DIFF    312.5//156.25//15600 //936        //ns
 #define CUT_TOT         0
 #define CUT_SIZE        1
 
@@ -31,22 +30,21 @@
 #define Y2_LOW   168
 #define Y2_HIGH  (Y2_LOW + Y2_SIZE)
 
-#define X1_CUT  3
-#define Y1_CUT  3
-
-#define X2_CUT  3
-#define Y2_CUT  3
+#define X1_CUT  1
+#define Y1_CUT  1
+#define X2_CUT  1
+#define Y2_CUT  1
 
 
 class Entangled
 {
 public:
-    Entangled(TString fileName, TString areaDef, UInt_t maxEntries = 0);
+    Entangled(TString fileName, TString tree = "rawtree", UInt_t maxEntries = 0);
     ~Entangled();
     void Process();
 
 private:
-    void Init(TString file, TString areas);
+    void Init(TString file, TString tree);
 
     Bool_t PositionCheck(UInt_t area[4]);
     UInt_t FindPairs(UInt_t area[4], Int_t &entry);

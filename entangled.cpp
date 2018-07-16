@@ -4,14 +4,16 @@
 
 #include <TTree.h>
 #include <TThread.h>
+#include <TH1.h>
+#include <TCanvas.h>
 
-Entangled::Entangled(TString fileName, TString areaDef, UInt_t maxEntries)
+Entangled::Entangled(TString fileName, TString tree, UInt_t maxEntries)
 {
     time_.Start();
     if (fileName.EndsWith(".root") && !fileName.EndsWith("_processed.root"))
     {
         std::cout << "Starting init: " << std::endl;
-        Init(fileName, areaDef);
+        Init(fileName, tree);
 
         std::cout << "Starting entanglement processing: " << std::endl;
         Process();
@@ -43,14 +45,14 @@ Entangled::~Entangled()
     }
 }
 
-void Entangled::Init(TString file, TString areas)
+void Entangled::Init(TString file, TString tree)
 {
     std::cout << "Reading file" << std::endl;
     inputName_ = file;
 
     std::cout << "Reading tree" << std::endl;
     fileRoot_   = new TFile(inputName_, "READ");
-    rawTree_ = (TTree *) fileRoot_->Get("rawtree");
+    rawTree_ = (TTree *) fileRoot_->Get(tree);
     std::cout << " - setting branches" << std::endl;
     rawTree_->SetBranchAddress("Size", &Size_);
     rawTree_->SetBranchAddress("Col",  Cols_);
@@ -62,7 +64,7 @@ void Entangled::Init(TString file, TString areas)
 
     std::cout << "Create writing file" << std::endl;
     outputName_ = inputName_;
-    outputName_.ReplaceAll(".root","_processed.root");
+    outputName_.ReplaceAll(".root","_"+tree+"_processed.root");
     outputRoot_ = new TFile(outputName_,"RECREATE");
 
     id_         = 0;
@@ -266,5 +268,96 @@ void Entangled::Process()
         ScanEntry(entry);
     }
 
+    for (Int_t x1 = 0; x1 < X1_CUT; x1++)
+    {
+        for (Int_t y1 = 0; y1 < Y1_CUT; y1++)
+        {
+            for (Int_t x2 = 0; x2 < X2_CUT; x2++)
+            {
+                for (Int_t y2 = 0; y2 < Y2_CUT; y2++)
+                {
+                    TString csvName = outputName_;
+                    TString pdfName = outputName_;
+
+                    csvName.Remove(csvName.Last('.'),200);
+                    csvName.Append(".csv");
+                    pdfName.Remove(csvName.Last('.'),200);
+                    pdfName.Append(".pdf");
+
+                    TCanvas* canvas = new TCanvas("canvas", fileName, 400, 400);
+                    std::ofstream csvFile;
+                    csvFile.open(csvName);
+
+                    TH1F* ent = new TH1F("histEnt", "Entangled " + fileName, 1 + ((2.0*MAX_DIFF)/1.5625), -MAX_DIFF-0.78125, MAX_DIFF+0.78125);
+                    TH1F* single1 = new TH1F("histSingle1", "Fiber 1 " + fileName, 1 + ((2.0*MAX_DIFF)/1.5625), -MAX_DIFF-0.78125, MAX_DIFF+0.78125);
+                    TH1F* single2 = new TH1F("histSingle2", "Fiber 2 " + fileName, 1 + ((2.0*MAX_DIFF)/1.5625), -MAX_DIFF-0.78125, MAX_DIFF+0.78125);
+
+                    Float_t dToA;
+                    Bool_t bSign;
+
+                    for (Int_t entry = 0; entry < entTree_[x1][y1][x2][y2]->GetEntries(); entry++)
+                    {
+                        entTree_[x1][y1][x2][y2]->GetEntry(entry);
+                        if (entry % 1000 == 0)
+                        {
+                            std::cout << "Entangled entry: " << entry << std::endl;
+                        }
+
+                        if (ToAs2_[0] > ToAs_[0])
+                        {
+                            dToA = (Float_t) (ToAs2_[0] - ToAs_[0]);
+                            bSign = kTRUE;
+                        }
+                        else
+                        {
+                            dToA = (Float_t) (ToAs_[0] - ToAs2_[0]);
+                            bSign = kFALSE;
+                        }
+
+                        dToA *= 25.0/4096;
+
+                        if (id == 0)
+                        {
+                            if (bSign)
+                                ent->Fill(dToA);
+                            else
+                                ent->Fill(-dToA);
+                        }
+                        else if (id == 1)
+                        {
+                            if (bSign)
+                                single1->Fill(dToA);
+                        }
+                        else if (id == 2)
+                        {
+                            if (!bSign)
+                                single2->Fill(-dToA);
+                        }
+
+                    }
+                    ent->SetLineColor(1);
+                    single1->SetLineColor(2);
+
+                    ent->Draw();
+                    single1->Draw("SAME");
+                    single2->Draw("SAME");
+
+                    canvas->Print(pdfName);
+                    canvas->Close();
+
+                    for (Int_t bin = 1; bin <= ent->GetNbinsX(); bin++)
+                    {
+                        if (bin < ent->GetNbinsX()/2)
+                            csvFile << ent->GetBinCenter(bin) << "," << ent->GetBinContent(bin) << "," << single2->GetBinContent(bin) << "\n";
+                        else if (bin > 1 + ent->GetNbinsX()/2)
+                            csvFile << ent->GetBinCenter(bin) << "," << ent->GetBinContent(bin) << "," << single1->GetBinContent(bin) << "\n";
+                        else
+                            csvFile << ent->GetBinCenter(bin) << "," << ent->GetBinContent(bin) << "," << (single1->GetBinContent(bin)+single2->GetBinContent(bin)) << "\n";
+                    }
+                    csvFile.close();
+                }
+            }
+        }
+    }
     outputRoot_->Write();
 }
