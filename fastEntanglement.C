@@ -5,9 +5,9 @@
 
 #include "entangled.h"
 
-#define MAX_ENTRIES 1e6
+#define MAX_ENTRIES 0
 
-void fastEntanglement(TString dirname, int nthreads = 2)
+void fastEntanglement(TString dirname, TString treeType = "rawtree", int nthreads = 2)
 {
     if (dirname.EndsWith("/"))
         dirname.Replace(dirname.Last('/'),200,"");
@@ -28,14 +28,14 @@ void fastEntanglement(TString dirname, int nthreads = 2)
             {
                 std::cout << fname << " " << inputNumber << " at " << dirname << std::endl;
                 m_inputNames[inputNumber++].SetString(dirname+"/"+fname);
-                Entangled* processor = new Entangled(dirname + "/" + fname, MAX_ENTRIES);
+//                Entangled* processor = new Entangled(dirname + "/" + fname, treeType, MAX_ENTRIES);
             }
         }
     }
 
-    auto multicoreProcess = [m_inputNames](int number)
+    auto multicoreProcess = [m_inputNames, treeType](int number)
     {
-        Entangled* processor = new Entangled(m_inputNames[number].GetString(), MAX_ENTRIES);
+        Entangled* processor = new Entangled(m_inputNames[number].GetString(), treeType, MAX_ENTRIES);
     };
 
     ROOT::TProcessExecutor workers(nthreads);
