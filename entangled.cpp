@@ -268,6 +268,7 @@ void Entangled::Process()
         ScanEntry(entry);
     }
 
+    outputRoot_->cd();
     for (Int_t x1 = 0; x1 < X1_CUT; x1++)
     {
         for (Int_t y1 = 0; y1 < Y1_CUT; y1++)
@@ -288,9 +289,9 @@ void Entangled::Process()
                     std::ofstream csvFile;
                     csvFile.open(csvName);
 
-                    TH1F* ent = new TH1F("histEnt", "Entangled " + fileName, 1 + ((2.0*MAX_DIFF)/1.5625), -MAX_DIFF-0.78125, MAX_DIFF+0.78125);
-                    TH1F* single1 = new TH1F("histSingle1", "Fiber 1 " + fileName, 1 + ((2.0*MAX_DIFF)/1.5625), -MAX_DIFF-0.78125, MAX_DIFF+0.78125);
-                    TH1F* single2 = new TH1F("histSingle2", "Fiber 2 " + fileName, 1 + ((2.0*MAX_DIFF)/1.5625), -MAX_DIFF-0.78125, MAX_DIFF+0.78125);
+                    TH1F* ent = new TH1F("histEnt" + Form("%dx%d_%dx%d",x1,y1,x2,y2), "Entangled " + Form("%dx%d_%dx%d",x1,y1,x2,y2), 1 + ((2.0*MAX_DIFF)/1.5625), -MAX_DIFF-0.78125, MAX_DIFF+0.78125);
+                    TH1F* single1 = new TH1F("histSingle1" + Form("%dx%d_%dx%d",x1,y1,x2,y2), "Fiber 1 " + Form("%dx%d_%dx%d",x1,y1,x2,y2), 1 + ((2.0*MAX_DIFF)/1.5625), -MAX_DIFF-0.78125, MAX_DIFF+0.78125);
+                    TH1F* single2 = new TH1F("histSingle2" + Form("%dx%d_%dx%d",x1,y1,x2,y2), "Fiber 2 " + Form("%dx%d_%dx%d",x1,y1,x2,y2), 1 + ((2.0*MAX_DIFF)/1.5625), -MAX_DIFF-0.78125, MAX_DIFF+0.78125);
 
                     Float_t dToA;
                     Bool_t bSign;
@@ -316,19 +317,19 @@ void Entangled::Process()
 
                         dToA *= 25.0/4096;
 
-                        if (id == 0)
+                        if (id_ == 0)
                         {
                             if (bSign)
                                 ent->Fill(dToA);
                             else
                                 ent->Fill(-dToA);
                         }
-                        else if (id == 1)
+                        else if (id_ == 1)
                         {
                             if (bSign)
                                 single1->Fill(dToA);
                         }
-                        else if (id == 2)
+                        else if (id_ == 2)
                         {
                             if (!bSign)
                                 single2->Fill(-dToA);
