@@ -285,7 +285,7 @@ void Entangled::Process()
                     pdfName.Remove(csvName.Last('.'),200);
                     pdfName.Append(".pdf");
 
-                    TCanvas* canvas = new TCanvas("canvas", fileName, 400, 400);
+                    TCanvas* canvas = new TCanvas(Form("canvas_%dx%d_%dx%d",x1,y1,x2,y2), Form("canvas_%dx%d_%dx%d",x1,y1,x2,y2), 400, 400);
                     std::ofstream csvFile;
                     csvFile.open(csvName);
 
