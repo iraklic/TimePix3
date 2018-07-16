@@ -1,6 +1,7 @@
 #include "entangled.h"
 
 #include <iostream>
+#include <fstream>
 
 #include <TTree.h>
 #include <TThread.h>
