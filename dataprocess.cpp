@@ -270,7 +270,7 @@ void DataProcess::plotStandardData()
         }
     }
 
-    canvas->Print(m_fileNamePdf);
+    canvas->Print(m_fileNamePath + m_fileNamePdf);
     canvas->Close();
 }
 
