@@ -1414,7 +1414,6 @@ void DataProcess::createCorrection()
 
     tmpLookupTable.ToT  = 0;
     tmpLookupTable.dToA = 0;
-    tmpLookupTable.dCent = 0;
     m_lookupTable.push_back(tmpLookupTable);
 
     std::cout << "==============================================="  << std::endl;
