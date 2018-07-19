@@ -1449,7 +1449,7 @@ void DataProcess::createCorrection()
 
         m_lookupTable.push_back(tmpLookupTable);
 
-        if (++cntToT > 400)
+        if (++cntToT > 1023)
             process = kFALSE;
     }
 
