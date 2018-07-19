@@ -14,7 +14,6 @@ const bool bTrigTime = false;
 const bool bTrigToA = true;
 const bool bNoTrigWindow = false;
 const bool bProcTree = true;
-const bool bCsv = false;
 
 const bool bCentroid = true;
 const int gapPix = 1;
@@ -24,7 +23,7 @@ const float timeWindow = 60;
 const float timeStart = 0;
 const bool bSingleFile = true;
 
-void fastProcess(TString dirname, bool combine=kFALSE, int nthreads = 2)
+void fastProcess(TString dirname, bool combine=kFALSE, int nthreads = 2, bool bCsv=kFALSE)
 {
     if (dirname.EndsWith("/"))
         dirname.Replace(dirname.Last('/'),200,"");
@@ -60,7 +59,7 @@ void fastProcess(TString dirname, bool combine=kFALSE, int nthreads = 2)
         processor->process();
     } else
     {
-        auto multicoreProcess = [m_inputNames](int number)
+        auto multicoreProcess = [m_inputNames, bCsv](int number)
         {
             DataProcess* processor = new DataProcess();
             TString tmpString = m_inputNames[number].GetString();
