@@ -44,7 +44,6 @@ struct LookupTable
 {
     UInt_t    ToT;
     Float_t  dToA;
-    Float_t  dCent;
 };
 
 class DataProcess

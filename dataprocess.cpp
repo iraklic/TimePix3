@@ -1288,13 +1288,13 @@ Int_t DataProcess::processRoot()
 
                     if (m_correction != corrOff)
                     {
-                        ToT = m_ToTs[entryRaw] / 25.0;
+                        ToT = m_ToTs[entryRaw] / 25;
 
                         if (ToT < m_lookupTable.size())
                         {
                             dToA  = m_lookupTable.at(ToT).dToA;
                             if (entryRaw != 0)
-                                dCent = m_lookupTable.at(m_ToTs[0] / 25.0).dToA;
+                                dCent = m_lookupTable.at(m_ToTs[0] / 25).dToA;
                             else
                                 dCent = 0;
                         }
@@ -1302,8 +1302,9 @@ Int_t DataProcess::processRoot()
                         {
                             dToA = 0;
                             dCent = 0;
-                            std::cout << "Sth went wrong in choosing dToA: ToT == " << ToT << std::endl;
+                            std::cout << "Sth went wrong in choosing dToA: ToT counter == " << ToT << ", LT size == " << m_lookupTable.size() <<std::endl;
                         }
+
                         if (entryRaw != 0)
                             m_histCorrToTvsToA->Fill(((Float_t)(m_ToAs[entryRaw] - tmpToAs0)*(25.0/4096)) + (dToA * 1e3), m_ToTs[entryRaw]);
                     }
@@ -1460,8 +1461,8 @@ void DataProcess::createCorrection()
         m_lookupTable.at(index).dToA = shift - m_lookupTable.at(index).dToA ;
         m_lookupTable.at(index).dToA /= 1e3;
 
-        m_lookupTable.at(index).dCent = shift - m_lookupTable.at(index).dCent ;
-        m_lookupTable.at(index).dCent /= 1e3;
+//        m_lookupTable.at(index).dCent = shift - m_lookupTable.at(index).dCent ;
+//        m_lookupTable.at(index).dCent /= 1e3;
 
         if (m_bCorrCsv)
             fprintf(m_fileCorr,"%u, %f\n", m_lookupTable.at(index).ToT, m_lookupTable.at(index).dToA);
