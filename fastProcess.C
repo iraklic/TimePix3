@@ -29,7 +29,7 @@ void fastProcess(TString dirname, bool combine=kFALSE, int nthreads = 2)
     if (dirname.EndsWith("/"))
         dirname.Replace(dirname.Last('/'),200,"");
 
-    TObjString m_inputNames[32];
+    TObjString m_inputNames[128];
     int inputNumber = 0;
 
     TSystemDirectory dir(dirname, dirname);
