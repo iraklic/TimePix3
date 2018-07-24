@@ -27,13 +27,13 @@ void fastProcess(TString name, bool combine=kFALSE, bool bCsv=kFALSE)
 {
     if (combine)
     {
-        if (dirname.EndsWith("/"))
-            dirname.Replace(dirname.Last('/'),200,"");
+        if (name.EndsWith("/"))
+            name.Replace(name.Last('/'),200,"");
 
         TObjString m_inputNames[128];
         int inputNumber = 0;
 
-        TSystemDirectory dir(dirname, dirname);
+        TSystemDirectory dir(name, name);
         TList *files = dir.GetListOfFiles();
         if (files)
         {
@@ -44,8 +44,8 @@ void fastProcess(TString name, bool combine=kFALSE, bool bCsv=kFALSE)
             { fname = file->GetName();
                 if (!file->IsDirectory() && fname.EndsWith(".dat"))
                 {
-                    std::cout << fname << " " << inputNumber << " at " << dirname << std::endl;
-                    m_inputNames[inputNumber++].SetString(dirname+"/"+fname);
+                    std::cout << fname << " " << inputNumber << " at " << name << std::endl;
+                    m_inputNames[inputNumber++].SetString(name+"/"+fname);
                 }
             }
         }
