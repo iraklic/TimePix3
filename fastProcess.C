@@ -2,6 +2,7 @@
 #include <TObjString.h>
 #include <TList.h>
 #include <TSystemDirectory.h>
+#include <TROOT.h>
 
 #include "dataprocess.h"
 
@@ -25,6 +26,8 @@ const bool bSingleFile = true;
 
 void fastProcess(TString name, bool combine=kFALSE, bool bCsv=kFALSE)
 {
+    gROOT->ProcessLine(".L dataProcess.cpp+");
+
     if (combine)
     {
         if (name.EndsWith("/"))
