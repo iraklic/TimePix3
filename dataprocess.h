@@ -77,6 +77,8 @@ public:
     void StopLoop();
 
 private:
+    void Init();
+
     Int_t processFileNames();
     void finishMsg(TString fileName, TString operation, UInt_t events, Int_t fileCounter = 1);
     ULong64_t roundToNs(ULong64_t number);

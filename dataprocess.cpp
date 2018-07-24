@@ -14,26 +14,30 @@ using namespace std;
 
 DataProcess::DataProcess()
 {
-    m_maxEntries = 0xFFFFFFFF;
-    m_process = procAll;
-    m_numInputs = 1;
-
-    m_sigHandler = new TSignalHandler(kSigInterrupt);
-    m_sigHandler->Add();
-    m_sigHandler->Connect("Notified()", "DataProcess", this, "StopLoop()");
-
-    m_pixelCounter = 0;
-    m_trigCnt = 0;
-    m_bFirstTrig = kFALSE;
-    m_bDevID = kFALSE;
-
-    m_correction = corrOff;
-    m_bCorrCsv = kTRUE;
+    Init();
 }
 
 DataProcess::~DataProcess()
 {
     delete m_sigHandler;
+}
+
+void DataProcess::Init()
+{
+    // set predefined options in case user definition is missing
+    setNEntries(0xFFFFFFFF);
+    setCorrection(CorrType::corrNew);
+    setProcess(procAll);
+    setOptions();
+
+    m_sigHandler = new TSignalHandler(kSigInterrupt);
+    m_sigHandler->Add();
+    m_sigHandler->Connect("Notified()", "DataProcess", this, "StopLoop()");
+
+    m_numInputs = 1;
+    m_trigCnt = 0;
+    m_bFirstTrig = kFALSE;
+    m_bDevID = kFALSE;
 }
 
 void DataProcess::setName(TString fileNameInput)
@@ -72,6 +76,7 @@ void DataProcess::setCorrection(CorrType correction, TString fileNameCorrection)
             {
                 std::cout << " - with file" << m_correctionName << std::endl;
                 openCorr(kTRUE);
+                m_bCorrCsv = kTRUE;
             }
             else
             {
@@ -84,11 +89,13 @@ void DataProcess::setCorrection(CorrType correction, TString fileNameCorrection)
             m_correctionName = fileNameCorrection;
             std::cout << "Using correction name " << m_correctionName << std::endl;
             openCorr(kFALSE);
+            m_bCorrCsv = kTRUE;
             break;
         }
         case corrOff:
         {
             std::cout << "Ignoring correction" << std::endl;
+            m_bCorrCsv = kFALSE;
             break;
         }
         default:
@@ -417,10 +424,10 @@ Int_t DataProcess::openCsv(DataType type, TString fileCounter)
     if (m_bToA)     fprintf(files->back(), "#ToA,");
     if (m_bToT)     fprintf(files->back(), "#ToT[arb],");
     if (m_bTrigToA) fprintf(files->back(), "#Trig-ToA[arb],");
-    if (m_correction != corrOff && m_bTrigToA) fprintf(files->back(), "#cTrig-ToA[us],");
-
     if (type == dtCent)
         if (m_bCentroid)fprintf(files->back(), "#Centroid,");
+    if (m_correction != corrOff && m_bTrigToA) fprintf(files->back(), "#cTrig-ToA[us],");
+
     fprintf(files->back(), "\n");
 
     return 0;
@@ -1242,7 +1249,7 @@ Int_t DataProcess::processRoot()
                         m_histCentSpectrum->Fill( ToF[0] );
                         m_centToTvsToF->Fill(ToF[0], ((Float_t) m_ToTs[0])/1000.0 );
 
-                        if (m_bCsv && m_correction != corrOff) fprintf(m_filesCsv.back(), "%f,",ToF[0]);
+                        if (m_bCsv && m_correction != corrOff) fprintf(m_filesCentCsv.back(), "%f,",ToF[0]);
                     }
 
                     if (m_bCsv )
