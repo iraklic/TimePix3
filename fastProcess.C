@@ -26,7 +26,7 @@ const bool bSingleFile = true;
 
 void fastProcess(TString name, bool combine=kFALSE, bool bCsv=kFALSE)
 {
-    gROOT->ProcessLine(".L dataProcess.cpp+");
+    gROOT->ProcessLine(".L dataprocess.cpp+");
 
     if (combine)
     {
