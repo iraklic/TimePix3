@@ -56,9 +56,9 @@ int main(int argc, char **argv)
             case 'f':
                 if(optarg){ filename = (TString) optarg; break;}
                 else {std::cout << "Missing file name" << std::endl;}
-            case 't':
+            case 'p':
                 if(optarg){ process = (TString) optarg; break;}
-                else {std::cout << "Missing process definition" << std::endl;}
+                else {std::cout << "Missing process type" << std::endl;}
             case 'e':
                 if(optarg){ maxEntries = (UInt_t) std::atoll(optarg); break;}
                 else {std::cout << "Define max entries " << std::endl;}
