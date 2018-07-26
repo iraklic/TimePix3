@@ -188,6 +188,11 @@ private:
     TH1I* m_histCentToT;
     TH1I* m_histCentToA;
 
+    TDirectory* m_scanDir;
+    TH2F* m_histCentScan[1023];
+    TH2F* m_mapCorr;
+    TH2F* m_mapCorrErr;
+
     TH2F* m_histCentToTvsToA;
     TH2F* m_histCorrToTvsToA;
 

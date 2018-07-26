@@ -36,6 +36,7 @@ void DataProcess::Init()
 
     m_numInputs = 1;
     m_trigCnt = 0;
+    m_maxEntries = 0;
     m_bFirstTrig = kFALSE;
     m_bDevID = kFALSE;
 }
@@ -481,6 +482,16 @@ Int_t DataProcess::openRoot()
         m_histCentToT       = new TH1I("histCentToT", "ToT", 200, 0, 5000);
         m_histCentToA       = new TH1I("histCentToA", "ToA", 1000, 0, 0);
 
+        m_scanDir = m_fileRoot->mkdir("ToTvsToA_scan");
+        m_scanDir->cd();
+        for (int totCounter = 0; totCounter < 1023; totCounter++)
+        {
+            m_histCentScan[totCounter] = new TH2F(Form("ToTvsToA_%d",totCounter*25),Form("ToTvsToA_%d",totCounter*25), 300, -234.375, 234.375, 400, 0, 10000);
+        }
+        m_fileRoot->cd();
+        m_mapCorr = new TH2F("cToTvsToT", "cToT:ToT", 400, 0, 10000, 400, 0, 10000);
+        m_mapCorrErr = new TH2F("cToTvsToTErr", "cToT:ToT:{Err}", 400, 0, 10000, 400, 0, 10000);
+
         m_histCentToTvsToA  = new TH2F("CentroidToTvsToA", "ToA:ToT", 300, -234.375, 234.375, 400, 0, 10000);
         m_histCorrToTvsToA  = new TH2F("CorrectedToTvsToA", "ToA:ToT", 300, -234.375, 234.375, 400, 0, 10000);
 
@@ -717,6 +728,7 @@ Int_t DataProcess::processDat()
     UInt_t          centeredIndex;
 
     ULong64_t tmpToA;
+    Float_t   tmpToT;
     UInt_t    posX, posY;
     Bool_t    indexFound;
 
@@ -732,7 +744,7 @@ Int_t DataProcess::processDat()
     //
     // Main loop over all entries
     // nentries is either 1000000000 or user defined
-    while (!feof(m_filesDat.back()) && m_pixelCounter < m_maxEntries)
+    while (!feof(m_filesDat.back()) && (m_pixelCounter < m_maxEntries || m_maxEntries == 0))
     {
         //
         // read entries, write out each 10^5
@@ -994,6 +1006,8 @@ Int_t DataProcess::processDat()
 
                 // save processed data to root and clear for next use
                 tmpToA = m_ToAs[0];
+                tmpToT = m_ToTs[0];
+
                 for (UInt_t k = 0; k < m_Size; k++)
                 {
 
@@ -1020,7 +1034,11 @@ Int_t DataProcess::processDat()
                     m_histToT->Fill(m_ToTs[k]);
                     m_histToA->Fill(m_ToAs[k]);
 
-                    if (m_bCentroid && k != 0) m_histCentToTvsToA->Fill((m_ToAs[k]-tmpToA)*(25.0/4096), ( m_ToTs[k]));
+                    if (m_bCentroid && k != 0)
+                    {
+                        m_histCentToTvsToA->Fill((m_ToAs[k]-tmpToA)*(25.0/4096), ( m_ToTs[k]));
+                        m_histCentScan[(UInt_t) (tmpToT/25)]->Fill((m_ToAs[k]-tmpToA)*(25.0/4096), ( m_ToTs[k]));
+                    }
 
                     m_Cols[k] = 0;
                     m_Rows[k] = 0;
@@ -1427,6 +1445,44 @@ void DataProcess::createCorrection()
 
     while (process)
     {
+        Bool_t inner = kTRUE;
+        int cnt = 1;
+        while (inner)
+        {
+            binCounter = 0;
+            Float_t tmpToA = 0;
+
+//            m_histCentScan[cntToT]->GetYaxis()->SetRange(cnt+1,cnt+1);
+//            m_histCentScan[cntToT]->GetXaxis()->SetRange(m_histCentScan[cntToT]->GetXaxis()->GetFirst(),m_histCentScan[cntToT]->GetXaxis()->GetLast());
+
+            for (Int_t binx = m_histCentScan[cntToT]->GetXaxis()->GetFirst(); binx < m_histCentScan[cntToT]->GetXaxis()->GetLast(); binx++)
+            {
+                tmpBinContent = m_histCentScan[cntToT]->GetBinContent(binx,cnt);
+                if (tmpBinContent > 10)
+                {
+                    tmpToA += (((1.5625 * ((Float_t) binx)) - 234.375) * tmpBinContent);
+                    binCounter += tmpBinContent;
+                }
+            }
+            if (binCounter != 0)
+            {
+                tmpToA /= binCounter;
+                m_mapCorrErr->Fill(cntToT*25,cnt*25,std::sqrt(binCounter));
+            }
+            else
+            {
+                tmpToA = 0;
+                m_mapCorrErr->Fill(cntToT*25,cnt*25,0);
+            }
+
+            m_mapCorr->Fill(cntToT*25,cnt*25,tmpToA);
+
+            if (++cnt > cntToT)
+                inner = kFALSE;
+        }
+//        m_histCentScan[cntToT]->GetYaxis()->SetRange();
+//        m_histCentScan[cntToT]->GetXaxis()->SetRange();
+
         m_histCentToTvsToA->GetYaxis()->SetRange(cntToT+1,cntToT+1);
         m_histCentToTvsToA->GetXaxis()->SetRange(m_histCentToTvsToA->GetXaxis()->GetFirst(),m_histCentToTvsToA->GetXaxis()->GetLast());
 
