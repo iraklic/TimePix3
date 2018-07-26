@@ -113,11 +113,13 @@ int main(int argc, char **argv)
                 }
             }
             processor->setName(inputNames, inputNumber);
+            processor->setCorrection(CorrType::corrNew, inputNames[0].GetString() + "_LTcorr.csv");
         }
         else
         {
             std::cout << filename << " " << " at " << dirname << std::endl;
             processor->setName(filename);
+            processor->setCorrection(CorrType::corrNew, filename + "_LTcorr.csv");
         }
 
         processor->process();
