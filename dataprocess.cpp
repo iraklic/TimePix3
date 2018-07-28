@@ -455,14 +455,14 @@ Int_t DataProcess::openRoot()
 
         //
         // create trees
-        m_rawTree = new TTree("rawtree", "Tpx3 camera, November 2017");
+        m_rawTree = new TTree("rawtree", "raw data, Version 0.1.0");
         m_rawTree->Branch("Size", &m_Size, "Size/i");
         m_rawTree->Branch("Col",   m_Cols, "Col[Size]/i");
         m_rawTree->Branch("Row",   m_Rows, "Row[Size]/i");
         m_rawTree->Branch("ToT",   m_ToTs, "ToT[Size]/i");
         m_rawTree->Branch("ToA",   m_ToAs, "ToA[Size]/l");    // l for long
 
-        m_timeTree = new TTree("timetree", "Tpx3 camera, March 2017");
+        m_timeTree = new TTree("timetree", "TDC counts");
         m_timeTree->Branch("TrigCntr", &m_trigCnt, "TrigCntr/i");
         m_timeTree->Branch("TrigTime", &m_trigTime,"TrigTime/l");
 
@@ -486,7 +486,7 @@ Int_t DataProcess::openRoot()
         m_scanDir->cd();
         for (int totCounter = 0; totCounter < 1023; totCounter++)
         {
-            m_histCentScan[totCounter] = new TH2F(Form("ToTvsToA_%d",totCounter*25),Form("ToTvsToA_%d",totCounter*25), 300, -234.375, 234.375, 400, 0, 10000);
+            m_histCentScan[totCounter] = new TH2F(Form("ToTvsToA_%d",totCounter*25),Form("ToTvsToA_%d",totCounter*25), 600, -468.75, 468.75, 400, 0, 10000);
         }
         m_fileRoot->cd();
         m_mapCorr = new TH2F("cToTvsToT", "cToT:ToT", 400, 0, 10000, 400, 0, 10000);
@@ -1118,7 +1118,7 @@ Int_t DataProcess::processRoot()
     {
         std::cout << "Creating procTree" << std::endl;
 
-        m_procTree = new TTree("proctree", "Tpx3 camera, January 2018");
+        m_procTree = new TTree("proctree", "processed data, Version 0.1.0");
         m_procTree->Branch("Size", &m_Size, "Size/i");
         m_procTree->Branch("Col",   m_Cols, "Col[Size]/i");
         m_procTree->Branch("Row",   m_Rows, "Row[Size]/i");
@@ -1437,9 +1437,17 @@ void DataProcess::createCorrection()
     Int_t tmpBinContent;
     Int_t binCounter;
 
-    tmpLookupTable.ToT  = 0;
-    tmpLookupTable.dToA = 0;
-    m_lookupTable.push_back(tmpLookupTable);
+    for (Int_t indexEntry = 0; indexEntry < 1023; indexEntry++)
+    {
+        for (Int_t indexCenter = 0; indexCenter < 1023; indexCenter++)
+        {
+            m_scanToT[indexCenter][indexEntry] = 0;
+        }
+    }
+
+//    tmpLookupTable.ToT  = 0;
+//    tmpLookupTable.dToA = 0;
+//    m_lookupTable.push_back(tmpLookupTable);
 
     std::cout << "==============================================="  << std::endl;
 
@@ -1452,15 +1460,12 @@ void DataProcess::createCorrection()
             binCounter = 0;
             Float_t tmpToA = 0;
 
-//            m_histCentScan[cntToT]->GetYaxis()->SetRange(cnt+1,cnt+1);
-//            m_histCentScan[cntToT]->GetXaxis()->SetRange(m_histCentScan[cntToT]->GetXaxis()->GetFirst(),m_histCentScan[cntToT]->GetXaxis()->GetLast());
-
             for (Int_t binx = m_histCentScan[cntToT]->GetXaxis()->GetFirst(); binx < m_histCentScan[cntToT]->GetXaxis()->GetLast(); binx++)
             {
-                tmpBinContent = m_histCentScan[cntToT]->GetBinContent(binx,cnt);
+                tmpBinContent = m_histCentScan[cntToT]->GetBinContent(binx,cnt+1);
                 if (tmpBinContent > 10)
                 {
-                    tmpToA += (((1.5625 * ((Float_t) binx)) - 234.375) * tmpBinContent);
+                    tmpToA += (((1.5625 * ((Float_t) binx)) - 468.75) * tmpBinContent);
                     binCounter += tmpBinContent;
                 }
             }
@@ -1476,66 +1481,90 @@ void DataProcess::createCorrection()
             }
 
             m_mapCorr->Fill(cntToT*25,cnt*25,tmpToA);
+            m_scanToT[cntToT][cnt] = tmpToA;
 
             if (++cnt > cntToT)
                 inner = kFALSE;
         }
-//        m_histCentScan[cntToT]->GetYaxis()->SetRange();
-//        m_histCentScan[cntToT]->GetXaxis()->SetRange();
 
-        m_histCentToTvsToA->GetYaxis()->SetRange(cntToT+1,cntToT+1);
-        m_histCentToTvsToA->GetXaxis()->SetRange(m_histCentToTvsToA->GetXaxis()->GetFirst(),m_histCentToTvsToA->GetXaxis()->GetLast());
+//        m_histCentToTvsToA->GetYaxis()->SetRange(cntToT+1,cntToT+1);
+//        m_histCentToTvsToA->GetXaxis()->SetRange(m_histCentToTvsToA->GetXaxis()->GetFirst(),m_histCentToTvsToA->GetXaxis()->GetLast());
 
-        tmpLookupTable.ToT = cntToT * 25;
-        binCounter = 0;
-        tmpLookupTable.dToA = 0;
-//        tmpLookupTable.dToA = m_histCentToTvsToA->GetMean();
-        for (Int_t binx = m_histCentToTvsToA->GetXaxis()->GetFirst(); binx < m_histCentToTvsToA->GetXaxis()->GetLast(); binx++)
-        {
-            tmpBinContent = m_histCentToTvsToA->GetBinContent(binx,cntToT+1);
-            if (tmpBinContent > 10)
-            {
-                tmpLookupTable.dToA += (((1.5625 * ((Float_t) binx)) - 234.375) * tmpBinContent);
-                binCounter += tmpBinContent;
-            }
-        }
-        if (binCounter != 0)
-            tmpLookupTable.dToA /= binCounter;
+//        tmpLookupTable.ToT = cntToT * 25;
+//        binCounter = 0;
+//        tmpLookupTable.dToA = 0;
+////        tmpLookupTable.dToA = m_histCentToTvsToA->GetMean();
+//        for (Int_t binx = m_histCentToTvsToA->GetXaxis()->GetFirst(); binx < m_histCentToTvsToA->GetXaxis()->GetLast(); binx++)
+//        {
+//            tmpBinContent = m_histCentToTvsToA->GetBinContent(binx,cntToT+1);
+//            if (tmpBinContent > 10)
+//            {
+//                tmpLookupTable.dToA += (((1.5625 * ((Float_t) binx)) - 234.375) * tmpBinContent);
+//                binCounter += tmpBinContent;
+//            }
+//        }
+//        if (binCounter != 0)
+//            tmpLookupTable.dToA /= binCounter;
 
-//        Int_t binx, biny, binz;
-//        m_histCentToTvsToA->GetMaximumBin(binx, biny, binz);
-//        tmpLookupTable.dToA = (1.5625 * ((Float_t) binx)) - 15.625;
+////        Int_t binx, biny, binz;
+////        m_histCentToTvsToA->GetMaximumBin(binx, biny, binz);
+////        tmpLookupTable.dToA = (1.5625 * ((Float_t) binx)) - 15.625;
 
-//        m_histCentToTvsToA->GetXaxis()->SetRange(11,m_histCentToTvsToA->GetXaxis()->GetLast());
-//        m_histCentToTvsToA->GetMaximumBin(binx, biny, binz);
-//        tmpLookupTable.dCent = (1.5625 * ((Float_t) binx)) - 15.625;
+////        m_histCentToTvsToA->GetXaxis()->SetRange(11,m_histCentToTvsToA->GetXaxis()->GetLast());
+////        m_histCentToTvsToA->GetMaximumBin(binx, biny, binz);
+////        tmpLookupTable.dCent = (1.5625 * ((Float_t) binx)) - 15.625;
 
-        m_lookupTable.push_back(tmpLookupTable);
+//        m_lookupTable.push_back(tmpLookupTable);
 
         if (++cntToT > 1023)
             process = kFALSE;
     }
 
-    Float_t shift = 0;//m_lookupTable.at(60).dToA;
-    for (UInt_t index = 0; index < m_lookupTable.size(); index++)
+    for (Int_t indexEntry = 0; indexEntry < 1023; indexEntry++)
     {
-        // correcting to middle value
-        m_lookupTable.at(index).dToA = shift - m_lookupTable.at(index).dToA ;
-        m_lookupTable.at(index).dToA /= 1e3;
-
-//        m_lookupTable.at(index).dCent = shift - m_lookupTable.at(index).dCent ;
-//        m_lookupTable.at(index).dCent /= 1e3;
+        tmpLookupTable.dToA = 0;
+        binCounter = 0;
+        for (Int_t indexCenter = 1500/25; indexCenter < 3000/25; indexCenter++)
+        {
+            tmpLookupTable.ToT  = 25 * indexEntry;
+            if (m_scanToT[indexCenter][indexEntry] != 0)
+            {
+                tmpLookupTable.dToA += m_scanToT[indexCenter][indexEntry];
+                binCounter++;
+            }
+        }
+        if (binCounter != 0)
+            tmpLookupTable.dToA /= (-1e3*binCounter);
+        m_lookupTable.push_back(tmpLookupTable);
 
         if (m_bCorrCsv)
-            fprintf(m_fileCorr,"%u, %f\n", m_lookupTable.at(index).ToT, m_lookupTable.at(index).dToA);
+            fprintf(m_fileCorr,"%u, %f\n", m_lookupTable.at(indexEntry).ToT, m_lookupTable.at(indexEntry).dToA);
         std::cout << "==============================================="  << std::endl;
-        std::cout << "ToT: "  << m_lookupTable.at(index).ToT << std::endl;
-//        std::cout << "ToA: "  << shift - (1e3 * m_lookupTable.at(index).dToA)  << std::endl;
-        std::cout << "dToA: " << m_lookupTable.at(index).dToA  << std::endl;
-//        std::cout << "dCent: "<< m_lookupTable.at(index).dCent << std::endl;
+        std::cout << "ToT: "  << m_lookupTable.at(indexEntry).ToT << std::endl;
+        std::cout << "dToA: " << m_lookupTable.at(indexEntry).dToA  << std::endl;
     }
 
-    m_histCentToTvsToA->GetYaxis()->SetRange();
-    m_histCentToTvsToA->GetXaxis()->SetRange();
+
+//    Float_t shift = 0;//m_lookupTable.at(60).dToA;
+//    for (UInt_t index = 0; index < m_lookupTable.size(); index++)
+//    {
+//        // correcting to middle value
+//        m_lookupTable.at(index).dToA = shift - m_lookupTable.at(index).dToA ;
+//        m_lookupTable.at(index).dToA /= 1e3;
+
+////        m_lookupTable.at(index).dCent = shift - m_lookupTable.at(index).dCent ;
+////        m_lookupTable.at(index).dCent /= 1e3;
+
+//        if (m_bCorrCsv)
+//            fprintf(m_fileCorr,"%u, %f\n", m_lookupTable.at(index).ToT, m_lookupTable.at(index).dToA);
+//        std::cout << "==============================================="  << std::endl;
+//        std::cout << "ToT: "  << m_lookupTable.at(index).ToT << std::endl;
+////        std::cout << "ToA: "  << shift - (1e3 * m_lookupTable.at(index).dToA)  << std::endl;
+//        std::cout << "dToA: " << m_lookupTable.at(index).dToA  << std::endl;
+////        std::cout << "dCent: "<< m_lookupTable.at(index).dCent << std::endl;
+//    }
+
+//    m_histCentToTvsToA->GetYaxis()->SetRange();
+//    m_histCentToTvsToA->GetXaxis()->SetRange();
 
 }

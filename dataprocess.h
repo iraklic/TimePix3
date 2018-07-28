@@ -189,6 +189,7 @@ private:
     TH1I* m_histCentToA;
 
     TDirectory* m_scanDir;
+    Float_t m_scanToT[1023][1023];
     TH2F* m_histCentScan[1023];
     TH2F* m_mapCorr;
     TH2F* m_mapCorrErr;
