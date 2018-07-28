@@ -1318,10 +1318,6 @@ Int_t DataProcess::processRoot()
                         if (ToT < m_lookupTable.size())
                         {
                             dToA  = m_lookupTable.at(ToT).dToA;
-                            if (entryRaw != 0)
-                                dCent = m_lookupTable.at(m_ToTs[0] / 25).dToA;
-                            else
-                                dCent = 0;
                         }
                         else
                         {
@@ -1339,14 +1335,14 @@ Int_t DataProcess::processRoot()
                         ToF[entryRaw] = (((Float_t) ( m_ToAs[entryRaw] - m_trigTime )* 25.0 )/4096000.0);
                         m_histSpectrum->Fill( ToF[entryRaw] );
                         m_ToTvsToF->Fill(ToF[entryRaw], ((Float_t) m_ToTs[entryRaw])/1000.0 );
-                        ToF[entryRaw] += dToA + dCent;
+                        ToF[entryRaw] += dToA;
                         m_histCorrSpectrum->Fill(ToF[entryRaw] );
                         m_corrToTvsToF->Fill(ToF[entryRaw], ((Float_t) m_ToTs[entryRaw])/1000.0 );
 
                         if (m_bCsv && m_correction != corrOff) fprintf(m_filesCsv.back(), "%f,",ToF[entryRaw]);
                     }
 
-                    m_ToAs[entryRaw] += (ULong64_t) ((1 + dCent + dToA)*(4096000.0/25.0));
+                    m_ToAs[entryRaw] += (ULong64_t) ((1 + dToA)*(4096000.0/25.0));
 
                     if (m_bCsv)
                         fprintf(m_filesCsv.back(), "\n");
