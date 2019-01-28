@@ -18,7 +18,7 @@ int main(int argc, char **argv)
     bool bRow = true;
     bool bToA = true;
     bool bToT = true;
-    bool bTrig = false;
+    bool bTrig = true;
     bool bTrigTime = true;
     bool bTrigToA = true;
     bool bProcTree = true;

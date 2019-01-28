@@ -43,7 +43,7 @@ enum DataType
 struct LookupTable
 {
     UInt_t    ToT;
-    Float_t  dToA;
+    Double_t  dToA;
 };
 
 class DataProcess
@@ -132,8 +132,8 @@ private:
     Bool_t m_bSingleFile;
     Bool_t m_bCorrCsv;
 
-    Float_t  m_timeWindow;
-    Float_t  m_timeStart;
+    Double_t  m_timeWindow;
+    Double_t  m_timeStart;
 
     UInt_t  m_linesPerFile;
 
@@ -169,8 +169,8 @@ private:
     TTree* m_procTree;
 
     UInt_t m_nRaw;
-    UInt_t m_nCent;
-    UInt_t m_nTime;
+    Long64_t m_nCent;
+    Long64_t m_nTime;
 
     //
     // ROOT histograms
@@ -224,6 +224,7 @@ private:
     // trigger data
     UInt_t      m_trigCnt;
     ULong64_t   m_trigTime;
+    ULong64_t   m_trigTimeNext;
 
     //
     // correction table

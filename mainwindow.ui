@@ -1,0 +1,899 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>959</width>
+    <height>646</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Reducer</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QHBoxLayout" name="horizontalLayout" stretch="2,1">
+    <item>
+     <widget class="QWidget" name="widget_2" native="true">
+      <layout class="QVBoxLayout" name="verticalLayout_2" stretch="1,2,1">
+       <item>
+        <widget class="QGroupBox" name="proc_types">
+         <property name="title">
+          <string>Processing Type</string>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout_5">
+          <item>
+           <widget class="QWidget" name="widget_3" native="true">
+            <layout class="QHBoxLayout" name="horizontalLayout_20">
+             <item>
+              <widget class="QRadioButton" name="procAll">
+               <property name="toolTip">
+                <string extracomment="test"/>
+               </property>
+               <property name="text">
+                <string>procAll</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="procDat">
+               <property name="text">
+                <string>procDat</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="procRoot">
+               <property name="text">
+                <string>procRoot</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="settings_types">
+         <property name="title">
+          <string>Processing Settings</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_15">
+          <item>
+           <widget class="QWidget" name="widget_4" native="true">
+            <layout class="QHBoxLayout" name="horizontalLayout_16">
+             <item>
+              <widget class="QCheckBox" name="csv_box">
+               <property name="text">
+                <string>CSV files</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="corr_box">
+               <property name="text">
+                <string>Corrections</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="tof_box">
+               <property name="text">
+                <string>ToF analysis</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QTabWidget" name="setting_tabs">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="currentIndex">
+             <number>2</number>
+            </property>
+            <widget class="QWidget" name="csv_tab">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+             <attribute name="title">
+              <string>CSV files</string>
+             </attribute>
+             <layout class="QHBoxLayout" name="horizontalLayout_8">
+              <item>
+               <widget class="QWidget" name="csv_control" native="true">
+                <layout class="QHBoxLayout" name="horizontalLayout_9" stretch="1,1">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
+                 <item>
+                  <widget class="QGroupBox" name="csv_variable_types">
+                   <property name="title">
+                    <string>Variables</string>
+                   </property>
+                   <layout class="QHBoxLayout" name="horizontalLayout_10">
+                    <item>
+                     <widget class="QGroupBox" name="csv_detector">
+                      <property name="title">
+                       <string>Detector</string>
+                      </property>
+                      <layout class="QVBoxLayout" name="verticalLayout_8">
+                       <item>
+                        <widget class="QCheckBox" name="csv_col_box">
+                         <property name="text">
+                          <string>Col</string>
+                         </property>
+                         <property name="checked">
+                          <bool>true</bool>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QCheckBox" name="csv_row_box">
+                         <property name="text">
+                          <string>Row</string>
+                         </property>
+                         <property name="checked">
+                          <bool>true</bool>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QCheckBox" name="csv_toa_box">
+                         <property name="text">
+                          <string>ToA</string>
+                         </property>
+                         <property name="checked">
+                          <bool>true</bool>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QCheckBox" name="csv_tot_box">
+                         <property name="text">
+                          <string>ToT</string>
+                         </property>
+                         <property name="checked">
+                          <bool>true</bool>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QGroupBox" name="csv_trigger">
+                      <property name="title">
+                       <string>Trigger</string>
+                      </property>
+                      <layout class="QVBoxLayout" name="verticalLayout_7">
+                       <item>
+                        <widget class="QCheckBox" name="csv_id_box">
+                         <property name="text">
+                          <string>ID</string>
+                         </property>
+                         <property name="checked">
+                          <bool>true</bool>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QCheckBox" name="csv_time_box">
+                         <property name="text">
+                          <string>Time</string>
+                         </property>
+                         <property name="checked">
+                          <bool>true</bool>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QCheckBox" name="csv_tof_box">
+                         <property name="enabled">
+                          <bool>false</bool>
+                         </property>
+                         <property name="text">
+                          <string>ToA - Trigger</string>
+                         </property>
+                         <property name="checked">
+                          <bool>false</bool>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </widget>
+                    </item>
+                   </layout>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QGroupBox" name="csv_output_types">
+                   <property name="title">
+                    <string>Output</string>
+                   </property>
+                   <layout class="QHBoxLayout" name="horizontalLayout_11">
+                    <item>
+                     <widget class="QGroupBox" name="csv_file_types">
+                      <property name="title">
+                       <string>File Type</string>
+                      </property>
+                      <layout class="QVBoxLayout" name="verticalLayout_4">
+                       <item>
+                        <widget class="QRadioButton" name="csv_both">
+                         <property name="text">
+                          <string>Both</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QRadioButton" name="csv_raw">
+                         <property name="text">
+                          <string>Raw</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QRadioButton" name="csv_corrected">
+                         <property name="text">
+                          <string>Corrected</string>
+                         </property>
+                         <property name="checked">
+                          <bool>true</bool>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QGroupBox" name="csv_file_settings">
+                      <property name="title">
+                       <string>File Settings</string>
+                      </property>
+                      <layout class="QVBoxLayout" name="verticalLayout_6">
+                       <item>
+                        <widget class="QCheckBox" name="csv_single_box">
+                         <property name="text">
+                          <string>single file</string>
+                         </property>
+                         <property name="checked">
+                          <bool>true</bool>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QGroupBox" name="csv_lines">
+                         <property name="enabled">
+                          <bool>false</bool>
+                         </property>
+                         <property name="title">
+                          <string>Lines per file</string>
+                         </property>
+                         <layout class="QVBoxLayout" name="verticalLayout_9">
+                          <item>
+                           <widget class="QSpinBox" name="csv_line_count"/>
+                          </item>
+                         </layout>
+                        </widget>
+                       </item>
+                      </layout>
+                     </widget>
+                    </item>
+                   </layout>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="corr_tab">
+             <attribute name="title">
+              <string>Corrections</string>
+             </attribute>
+             <layout class="QVBoxLayout" name="verticalLayout_10">
+              <item>
+               <widget class="QWidget" name="corr_control" native="true">
+                <layout class="QVBoxLayout" name="verticalLayout_13" stretch="1,2">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
+                 <item>
+                  <widget class="QGroupBox" name="corr_centroid">
+                   <property name="title">
+                    <string>Centroiding</string>
+                   </property>
+                   <property name="checkable">
+                    <bool>true</bool>
+                   </property>
+                   <layout class="QHBoxLayout" name="horizontalLayout_12">
+                    <item>
+                     <widget class="QGroupBox" name="corr_centroid_gap">
+                      <property name="title">
+                       <string>Pixel Gap</string>
+                      </property>
+                      <layout class="QHBoxLayout" name="horizontalLayout_14">
+                       <item>
+                        <widget class="QSpinBox" name="corr_centroid_gap_size"/>
+                       </item>
+                       <item>
+                        <widget class="QLabel" name="corr_centroid_gap_text">
+                         <property name="text">
+                          <string>allowed hit distance</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QGroupBox" name="corr_centroid_window">
+                      <property name="title">
+                       <string>Time Window</string>
+                      </property>
+                      <layout class="QHBoxLayout" name="horizontalLayout_13">
+                       <item>
+                        <widget class="QDoubleSpinBox" name="corr_centroid_window_size"/>
+                       </item>
+                       <item>
+                        <widget class="QLabel" name="corr_centroid_window_text">
+                         <property name="text">
+                          <string>time scan width</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </widget>
+                    </item>
+                   </layout>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QGroupBox" name="corr_timewalk">
+                   <property name="title">
+                    <string>Timewalk</string>
+                   </property>
+                   <property name="checkable">
+                    <bool>true</bool>
+                   </property>
+                   <layout class="QHBoxLayout" name="horizontalLayout_15" stretch="1,3">
+                    <item>
+                     <widget class="QWidget" name="corr_timewalk_type" native="true">
+                      <layout class="QVBoxLayout" name="verticalLayout_11">
+                       <property name="leftMargin">
+                        <number>0</number>
+                       </property>
+                       <property name="topMargin">
+                        <number>0</number>
+                       </property>
+                       <property name="rightMargin">
+                        <number>0</number>
+                       </property>
+                       <property name="bottomMargin">
+                        <number>0</number>
+                       </property>
+                       <item>
+                        <widget class="QRadioButton" name="corr_timewalk_new">
+                         <property name="text">
+                          <string>New</string>
+                         </property>
+                         <property name="checked">
+                          <bool>true</bool>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QRadioButton" name="corr_timewalk_load">
+                         <property name="text">
+                          <string>Load</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QWidget" name="corr_timewalk_file" native="true">
+                      <layout class="QVBoxLayout" name="verticalLayout_14">
+                       <property name="leftMargin">
+                        <number>0</number>
+                       </property>
+                       <property name="topMargin">
+                        <number>0</number>
+                       </property>
+                       <property name="rightMargin">
+                        <number>0</number>
+                       </property>
+                       <property name="bottomMargin">
+                        <number>0</number>
+                       </property>
+                       <item>
+                        <widget class="QLineEdit" name="corr_timewalk_edit"/>
+                       </item>
+                       <item>
+                        <widget class="QPushButton" name="corr_timewalk_browse">
+                         <property name="text">
+                          <string>Browse</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </widget>
+                    </item>
+                   </layout>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="tof_tab">
+             <attribute name="title">
+              <string>ToF analysis</string>
+             </attribute>
+             <layout class="QVBoxLayout" name="verticalLayout_16">
+              <item>
+               <widget class="QWidget" name="tof_control" native="true">
+                <layout class="QVBoxLayout" name="verticalLayout_17">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
+                 <item>
+                  <widget class="QGroupBox" name="tof_trigger">
+                   <property name="title">
+                    <string>Trigger arrival</string>
+                   </property>
+                   <layout class="QHBoxLayout" name="horizontalLayout_7">
+                    <item>
+                     <widget class="QRadioButton" name="tof_trigger_before">
+                      <property name="text">
+                       <string>Before</string>
+                      </property>
+                      <property name="checked">
+                       <bool>true</bool>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QRadioButton" name="tof_trigger_after">
+                      <property name="text">
+                       <string>After</string>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QGroupBox" name="tof_window">
+                   <property name="title">
+                    <string>ToF window</string>
+                   </property>
+                   <property name="checkable">
+                    <bool>true</bool>
+                   </property>
+                   <property name="checked">
+                    <bool>false</bool>
+                   </property>
+                   <layout class="QHBoxLayout" name="horizontalLayout_17">
+                    <item>
+                     <widget class="QGroupBox" name="tof_window_start">
+                      <property name="title">
+                       <string>Start</string>
+                      </property>
+                      <layout class="QHBoxLayout" name="horizontalLayout_19">
+                       <item>
+                        <widget class="QDoubleSpinBox" name="tof_window_start_value"/>
+                       </item>
+                       <item>
+                        <widget class="QLabel" name="label_4">
+                         <property name="text">
+                          <string>TextLabel</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QGroupBox" name="tof_window_width">
+                      <property name="title">
+                       <string>Width</string>
+                      </property>
+                      <layout class="QHBoxLayout" name="horizontalLayout_18">
+                       <item>
+                        <widget class="QDoubleSpinBox" name="tof_window_width_value"/>
+                       </item>
+                       <item>
+                        <widget class="QLabel" name="label_5">
+                         <property name="text">
+                          <string>TextLabel</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </widget>
+                    </item>
+                   </layout>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="groupBox_5">
+         <property name="title">
+          <string>Input files</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_12">
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+          <item>
+           <widget class="QPlainTextEdit" name="browse_text"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="browse_button">
+            <property name="text">
+             <string>Browse</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QWidget" name="widget" native="true">
+      <layout class="QVBoxLayout" name="verticalLayout" stretch="10,1,3">
+       <item>
+        <widget class="QToolBox" name="toolBox">
+         <property name="frameShape">
+          <enum>QFrame::NoFrame</enum>
+         </property>
+         <property name="currentIndex">
+          <number>1</number>
+         </property>
+         <widget class="QWidget" name="master_page">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>337</width>
+            <height>342</height>
+           </rect>
+          </property>
+          <attribute name="label">
+           <string>Master Process</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_5">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QPlainTextEdit" name="master_text">
+             <property name="frameShape">
+              <enum>QFrame::StyledPanel</enum>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="slave_page">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>337</width>
+            <height>342</height>
+           </rect>
+          </property>
+          <attribute name="label">
+           <string>Slave Processes</string>
+          </attribute>
+          <layout class="QHBoxLayout" name="horizontalLayout_6">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QTabWidget" name="slave_tab">
+             <property name="currentIndex">
+              <number>0</number>
+             </property>
+             <widget class="QWidget" name="slave_tab_0">
+              <attribute name="title">
+               <string>Process 0</string>
+              </attribute>
+              <layout class="QVBoxLayout" name="verticalLayout_3">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <widget class="QPlainTextEdit" name="slave_tab_0_text">
+                 <property name="frameShape">
+                  <enum>QFrame::NoFrame</enum>
+                 </property>
+                 <property name="readOnly">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QProgressBar" name="slave_tab_0_progress">
+                 <property name="value">
+                  <number>24</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+       <item>
+        <widget class="QWidget" name="process_control" native="true">
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <item>
+           <widget class="QGroupBox" name="process_entries">
+            <property name="title">
+             <string>Number of Entries</string>
+            </property>
+            <layout class="QHBoxLayout" name="horizontalLayout_4">
+             <item>
+              <widget class="QSpinBox" name="process_entries_value"/>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_2">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeType">
+             <enum>QSizePolicy::Preferred</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="process_cores">
+            <property name="title">
+             <string>Number of Cores</string>
+            </property>
+            <layout class="QHBoxLayout" name="horizontalLayout_3">
+             <item>
+              <widget class="QLabel" name="label">
+               <property name="text">
+                <string>Available:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="process_cores_max">
+               <property name="text">
+                <string>1</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeType">
+                <enum>QSizePolicy::Preferred</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QLabel" name="label_3">
+               <property name="text">
+                <string>Use:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QSpinBox" name="process_cores_value">
+               <property name="minimum">
+                <number>1</number>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButton">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>64</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>Start</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>959</width>
+     <height>27</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuSettings">
+    <property name="title">
+     <string>Settings</string>
+    </property>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>Help</string>
+    </property>
+   </widget>
+   <addaction name="menuSettings"/>
+   <addaction name="menuHelp"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>csv_box</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>csv_control</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>117</x>
+     <y>144</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>285</x>
+     <y>302</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>csv_single_box</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>csv_lines</receiver>
+   <slot>setDisabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>477</x>
+     <y>273</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>477</x>
+     <y>330</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>corr_box</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>corr_control</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>289</x>
+     <y>144</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>285</x>
+     <y>313</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>tof_box</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>csv_tof_box</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>477</x>
+     <y>153</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>219</x>
+     <y>375</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

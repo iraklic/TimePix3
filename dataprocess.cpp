@@ -1092,22 +1092,21 @@ Int_t DataProcess::processRoot()
 {
     UInt_t lineCounter = 0;
     UInt_t lineCounterCent = 0;
-    UInt_t currChunkRaw = 0;
     UInt_t currChunkCent = 0;
     UInt_t entryTime = 0;
-    ULong64_t tmpTrigTime = 0;
 
-    ULong64_t lfTimeWindow = (ULong64_t) ((m_timeWindow*4096000.0/25.0) + 0.5);
-    ULong64_t lfTimeStart  = (ULong64_t) ((m_timeStart *4096000.0/25.0) + 0.5);
+    ULong64_t lfTimeWindow = static_cast<ULong64_t>(((4096000.0/25.0) * static_cast<Double_t>(m_timeWindow)) + 0.5);
+    ULong64_t lfTimeStart  = static_cast<ULong64_t>(((4096000.0/25.0) * static_cast<Double_t>(m_timeStart )) + 0.5);
 
     Int_t binCount;
-    Float_t binMin;
-    Float_t binMax;
+    Double_t binMin;
+    Double_t binMax;
 
     UInt_t   ToT;
-    Float_t dToA = 0;
-    Float_t dCent = 0;
-    Float_t ToF[MAXHITS];
+    Double_t dToA = 0;
+    Double_t dCent = 0;
+    ULong64_t ToATrig[MAXHITS];
+    Double_t ToF[MAXHITS];
 
     m_nCent = m_rawTree->GetEntries();
     m_nTime = m_timeTree->GetEntries();
@@ -1118,15 +1117,17 @@ Int_t DataProcess::processRoot()
     {
         std::cout << "Creating procTree" << std::endl;
 
-        m_procTree = new TTree("proctree", "processed data, Version 0.1.0");
+        m_procTree = new TTree("proctree", "processed data, Version 0.1.1");
         m_procTree->Branch("Size", &m_Size, "Size/i");
         m_procTree->Branch("Col",   m_Cols, "Col[Size]/i");
         m_procTree->Branch("Row",   m_Rows, "Row[Size]/i");
         m_procTree->Branch("ToT",   m_ToTs, "ToT[Size]/i");
         m_procTree->Branch("ToA",   m_ToAs, "ToA[Size]/l");    // l for long unsigned
+        m_procTree->Branch("ToATrig",  ToATrig, "ToATrig[Size]/l");    // l for long unsigned
         m_procTree->Branch("ToF",      ToF, "ToF[Size]/F");    // F for float
         m_procTree->Branch("TrigCntr", &entryTime, "TrigCntr/i");
         m_procTree->Branch("TrigTime", &m_trigTime,"TrigTime/l");
+        m_procTree->Branch("TrigTimeNext", &m_trigTimeNext,"TrigTimeNext/l");
     }
 
     if (!m_bCol && !m_bRow && !m_bToA && !m_bToT && !m_bTrigToA) m_nCent = 0;
@@ -1143,9 +1144,9 @@ Int_t DataProcess::processRoot()
         }
         else
         {
-            binCount = (UInt_t) (640 * m_timeWindow);
+            binCount = static_cast<Int_t>(640 * m_timeWindow);
             binMin   = m_timeStart;
-            binMax   = ((Float_t) binCount/16000)*25 + m_timeStart;
+            binMax   = (static_cast<Double_t>(binCount)/16000.0)*25.0 + m_timeStart;
         }
 
         m_histSpectrum     = new TH1F("histSpectrum", "ToF (ToA - trigTime)", binCount, binMin, binMax);
@@ -1164,19 +1165,28 @@ Int_t DataProcess::processRoot()
     // loop entries in timeTree
     while (entryTime < m_nTime || m_nTime == 0)
     {
-        if (entryTime % 10000 == 0) std::cout << "Time entry " << entryTime << " out of " << m_nTime << " done!" << std::endl;
+        if (entryTime % 10 == 0) std::cout << "Time entry " << entryTime << " out of " << m_nTime << " done!" << std::endl;
 
         if (m_nTime != 0)
         {
             if (m_bNoTrigWindow && ((entryTime + 1) < m_nTime))
             {
                 m_timeTree->GetEntry(entryTime + 1);
-                tmpTrigTime = m_trigTime;
+                m_trigTimeNext = m_trigTime;
                 m_timeTree->GetEntry(entryTime);
-                lfTimeWindow = tmpTrigTime - m_trigTime;
+                lfTimeWindow = m_trigTimeNext - m_trigTime;
+                lfTimeStart = 0;
             }
             else
             {
+                if ((entryTime + 1) < m_nTime)
+                {
+                    m_timeTree->GetEntry(entryTime + 1);
+                    m_trigTimeNext = m_trigTime;
+                }
+                else
+                    m_trigTimeNext = 0;
+
                 m_timeTree->GetEntry(entryTime);
             }
 
@@ -1202,11 +1212,11 @@ Int_t DataProcess::processRoot()
         for (UInt_t entryCent = currChunkCent; entryCent < m_nCent; entryCent++)
         {
             m_rawTree->GetEntry(entryCent);
-            if (entryCent % 100000 == 0 && m_nTime == 0) std::cout << "Entry " << entryCent << " of " << m_nCent << " done!" << std::endl;
+            if (m_nTime == 0 && entryCent % 100000 == 0) std::cout << "Entry " << entryCent << " of " << m_nCent << " done!" << std::endl;
 
             //
             // dump all useless data
-            if ( m_nTime!= 0 && m_ToAs[0] < m_trigTime + lfTimeStart)
+            if ( m_nTime!= 0 && m_ToAs[0] < (m_trigTime + lfTimeStart))
             {
                 currChunkCent = entryCent;
                 continue;
@@ -1254,7 +1264,7 @@ Int_t DataProcess::processRoot()
 
                     if (m_correction != corrOff)
                     {
-                        ToT = m_ToTs[0] / 25.0;
+                        ToT = static_cast<UInt_t>(m_ToTs[0] / 25.0);
                         if (ToT < m_lookupTable.size())
                             dCent = m_lookupTable.at(ToT).dToA;
                         else
@@ -1263,11 +1273,12 @@ Int_t DataProcess::processRoot()
 
                     if (m_bTrigToA)
                     {
-                        ToF[0] = (((Float_t) ( m_ToAs[0] - m_trigTime)*25.0)/4096000.0) + dCent;
+                        ToATrig[0] = m_ToAs[0] - m_trigTime + static_cast<ULong64_t>((4096000.0/25.0) * dCent);
+                        ToF[0] = ((static_cast<Double_t>( m_ToAs[0] - m_trigTime)*25.0)/4096000.0) + dCent;
                         m_histCentSpectrum->Fill( ToF[0] );
-                        m_centToTvsToF->Fill(ToF[0], ((Float_t) m_ToTs[0])/1000.0 );
+                        m_centToTvsToF->Fill(ToF[0], static_cast<Double_t>(m_ToTs[0])/1000.0 );
 
-                        if (m_bCsv && m_correction != corrOff) fprintf(m_filesCentCsv.back(), "%f,",ToF[0]);
+                        if (m_bCsv && m_correction != corrOff) fprintf(m_filesCentCsv.back(), "%f,", ToF[0]);
                     }
 
                     if (m_bCsv )
@@ -1297,7 +1308,6 @@ Int_t DataProcess::processRoot()
 
                 //
                 // write raw data
-                ULong64_t tmpToAs0 = m_ToAs[0];
                 for (UInt_t entryRaw = 0; entryRaw < m_Size; entryRaw++)
                 {
                     if (m_bCsv)
@@ -1313,7 +1323,7 @@ Int_t DataProcess::processRoot()
 
                     if (m_correction != corrOff)
                     {
-                        ToT = m_ToTs[entryRaw] / 25;
+                        ToT = static_cast<UInt_t>(m_ToTs[entryRaw] / 25.0);
 
                         if (ToT < m_lookupTable.size())
                         {
@@ -1327,17 +1337,20 @@ Int_t DataProcess::processRoot()
                         }
 
                         if (entryRaw != 0)
-                            m_histCorrToTvsToA->Fill(((Float_t)(m_ToAs[entryRaw] - tmpToAs0)*(25.0/4096)) + (dToA * 1e3), m_ToTs[entryRaw]);
+                            m_histCorrToTvsToA->Fill((static_cast<Double_t>(m_ToAs[entryRaw])*(25.0/4096)) + (dToA * 1e3), m_ToTs[entryRaw]);
                     }
 
                     if (m_bTrigToA)
                     {
-                        ToF[entryRaw] = (((Float_t) ( m_ToAs[entryRaw] - m_trigTime )* 25.0 )/4096000.0);
+                        ToATrig[entryRaw] = (m_ToAs[entryRaw] - m_trigTime) + static_cast<ULong64_t>(dToA * (4096000.0/25.0));
+
+                        ToF[entryRaw] = ((static_cast<Double_t>( m_ToAs[entryRaw] - m_trigTime ) * 25.0 ) / 4096000.0);
                         m_histSpectrum->Fill( ToF[entryRaw] );
-                        m_ToTvsToF->Fill(ToF[entryRaw], ((Float_t) m_ToTs[entryRaw])/1000.0 );
+                        m_ToTvsToF->Fill(ToF[entryRaw], static_cast<Double_t>(m_ToTs[entryRaw])/1000.0 );
+
                         ToF[entryRaw] += dToA;
                         m_histCorrSpectrum->Fill(ToF[entryRaw] );
-                        m_corrToTvsToF->Fill(ToF[entryRaw], ((Float_t) m_ToTs[entryRaw])/1000.0 );
+                        m_corrToTvsToF->Fill(ToF[entryRaw], static_cast<Double_t>(m_ToTs[entryRaw])/1000.0 );
 
                         if (m_bCsv && m_correction != corrOff) fprintf(m_filesCsv.back(), "%f,",ToF[entryRaw]);
                     }
@@ -1354,11 +1367,11 @@ Int_t DataProcess::processRoot()
                     m_procTree->Fill();
                 }
 
-                for (UInt_t entryRaw = 0; entryRaw < MAXHITS; entryRaw++)
-                {
-                    ToF[entryRaw] = 0;
-                }
-
+//                for (UInt_t entryRaw = 0; entryRaw < MAXHITS; entryRaw++)
+//                {
+//                    ToATrig[entryRaw] = 0;
+//                    ToF[entryRaw] = 0;
+//                }
             }
         }
 
