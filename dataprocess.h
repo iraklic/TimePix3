@@ -80,7 +80,7 @@ private:
     void Init();
 
     Int_t processFileNames();
-    void finishMsg(TString fileName, TString operation, UInt_t events, Int_t fileCounter = 1);
+    void finishMsg(TString fileName, TString operation, ULong64_t events, Int_t fileCounter = 1);
     ULong64_t roundToNs(ULong64_t number);
 
     Int_t openCorr(Bool_t create = kTRUE);
@@ -88,7 +88,7 @@ private:
     Int_t openCsv(DataType type = dtStandard, TString fileCounter = "");
     Int_t openRoot();
 
-    void  findCluster(UInt_t index, UInt_t stop, deque<UInt_t >* cols, deque<UInt_t >* rows, deque<ULong64_t >* toas, deque<UInt_t> *tots, deque<Bool_t >* centered, deque<UInt_t >* indices);
+    void  findCluster(ULong64_t index, ULong64_t stop, deque<UInt_t >* cols, deque<UInt_t >* rows, deque<ULong64_t >* toas, deque<UInt_t> *tots, deque<Bool_t >* centered, deque<ULong64_t> *indices);
     Int_t processDat();
     Int_t skipHeader();
 
@@ -109,9 +109,9 @@ private:
     ProcType    m_process;
     CorrType    m_correction;
     TString     m_correctionName;
-    UInt_t      m_maxEntries;
+    ULong64_t   m_maxEntries;
     TStopwatch  m_time;
-    UInt_t      m_pixelCounter;
+    ULong64_t   m_pixelCounter;
     TSignalHandler* m_sigHandler;
     Bool_t      m_bFirstTrig;
     Bool_t      m_bDevID;
@@ -168,7 +168,7 @@ private:
     TTree* m_timeTree;
     TTree* m_procTree;
 
-    UInt_t m_nRaw;
+    Long64_t m_nRaw;
     Long64_t m_nCent;
     Long64_t m_nTime;
 

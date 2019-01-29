@@ -640,24 +640,25 @@ Int_t DataProcess::skipHeader()
 }
 
 // find clusters recursively
-void DataProcess::findCluster(UInt_t index, UInt_t stop, deque<UInt_t >* cols, deque<UInt_t >* rows, deque<ULong64_t >* toas, deque<UInt_t >* tots, deque<Bool_t >* centered, deque<UInt_t >* indices)
+void DataProcess::findCluster(ULong64_t index, ULong64_t stop, deque<UInt_t >* cols, deque<UInt_t >* rows, deque<ULong64_t >* toas, deque<UInt_t >* tots, deque<Bool_t >* centered, deque<ULong64_t >* indices)
 {
-    Int_t colInd, rowInd, totInd;
-    Int_t colK, rowK, totK;
+    Int_t colInd, rowInd;
+    Int_t colK, rowK;
+    UInt_t totK, totInd;
     ULong64_t toaInd, toaK, toa, toaDiff;
 
-    Int_t gap = 1 + (Int_t) m_gapPix;
+    UInt_t gap = 1 + m_gapPix;
 
-    colInd = (Int_t) cols->at(index);
-    rowInd = (Int_t) rows->at(index);
+    colInd = static_cast<Int_t>(cols->at(index));
+    rowInd = static_cast<Int_t>(rows->at(index));
     toaInd = toas->at(index);
     totInd = tots->at(index);
     toa = 81920;
 
-    for (UInt_t k = 0; k < stop; k++)
+    for (ULong64_t k = 0; k < stop; k++)
     {
-        colK = (Int_t) cols->at(k);
-        rowK = (Int_t) rows->at(k);
+        colK = static_cast<Int_t>(cols->at(k));
+        rowK = static_cast<Int_t>(rows->at(k));
         toaK = toas->at(k);
         totK = tots->at(k);
 
@@ -670,7 +671,7 @@ void DataProcess::findCluster(UInt_t index, UInt_t stop, deque<UInt_t >* cols, d
             toaDiff = toaInd - toaK;
         }
 
-        if (!(centered->at(k)) && ((std::abs(colInd - colK) <= gap) && (std::abs(rowInd - rowK) <= gap )) && toaDiff < toa)
+        if (!(centered->at(k)) && ((static_cast<UInt_t>(std::abs(colInd - colK)) <= gap) && (static_cast<UInt_t>(std::abs(rowInd - rowK)) <= gap )) && toaDiff < toa)
         {
             centered->at(k) = kTRUE;
             indices->push_back(k);
@@ -718,14 +719,14 @@ Int_t DataProcess::processDat()
     deque<UInt_t>      ToTs;
     deque<ULong64_t>   ToAs;
 
-    UInt_t sortSize = MAXHITS;
-    UInt_t sortThreshold = 2*sortSize;
+    ULong64_t sortSize = MAXHITS;
+    ULong64_t sortThreshold = static_cast<ULong64_t>(2*sortSize);
 
     //
     // used for centroiding
-    deque<Bool_t>   Centered;
-    deque<UInt_t>   centeredIndices;
-    UInt_t          centeredIndex;
+    deque<Bool_t>      Centered;
+    deque<ULong64_t>   centeredIndices;
+    ULong64_t          centeredIndex;
 
     ULong64_t tmpToA;
     Float_t   tmpToT;
@@ -891,15 +892,15 @@ Int_t DataProcess::processDat()
         {
             //
             // processing either sort size or hitlist size
-            UInt_t actSortedSize;
+            ULong64_t actSortedSize;
             if (retVal <= 0) actSortedSize = Cols.size();
             else actSortedSize = sortSize;
 
             //
             // insert sort the doublechunk
-            for (UInt_t i = 0; i < Cols.size() ; i++)
+            for (ULong64_t i = 0; i < Cols.size() ; i++)
             {
-                UInt_t j = i;
+                ULong64_t j = i;
                 while (j > 0 && ToAs[j-1] > ToAs[j])//(ToAs[j-1] & 0xFFFF) > (ToAs[j] & 0xFFFF))
                 {
                     swap(Cols[j-1],Cols[j]);
@@ -914,7 +915,7 @@ Int_t DataProcess::processDat()
             //
             // saving half of the sorted data to root file
             // first do centroiding
-            for (UInt_t i = 0; i < actSortedSize ; i++)
+            for (ULong64_t i = 0; i < actSortedSize ; i++)
             {
                 indexFound  = kFALSE;
                 posX        = Cols.front();
@@ -924,7 +925,7 @@ Int_t DataProcess::processDat()
                 if (m_bCentroid)
                 {
                     // get all hits in one time window
-                    UInt_t j = 0;
+                    ULong64_t j = 0;
                     while (!Centered.front() && j < Cols.size())
                     {
                         // reaching the window gap
@@ -949,7 +950,7 @@ Int_t DataProcess::processDat()
                     ToT       = 0;
                     posX      = 0;
                     posY      = 0;
-                    for (UInt_t k = 0; k < centeredIndices.size(); k++)
+                    for (ULong64_t k = 0; k < centeredIndices.size(); k++)
                     {
                         ToT      += ToTs[centeredIndices[k]];
                         posX     += ToTs[centeredIndices[k]]*Cols[centeredIndices[k]];
@@ -971,7 +972,7 @@ Int_t DataProcess::processDat()
                 // save data - centroid will have index 0, others following - not necessarilly time-sorted
                 ToT = 0;
                 centeredIndex = 0;
-                m_Size = centeredIndices.size();
+                m_Size = static_cast<UInt_t>(centeredIndices.size());
 
                 for (UInt_t k = 0; k < m_Size; k++)
                 {
@@ -1092,8 +1093,8 @@ Int_t DataProcess::processRoot()
 {
     UInt_t lineCounter = 0;
     UInt_t lineCounterCent = 0;
-    UInt_t currChunkCent = 0;
-    UInt_t entryTime = 0;
+    Long64_t currChunkCent = 0;
+    Long64_t entryTime = 0;
 
     ULong64_t lfTimeWindow = static_cast<ULong64_t>(((4096000.0/25.0) * static_cast<Double_t>(m_timeWindow)) + 0.5);
     ULong64_t lfTimeStart  = static_cast<ULong64_t>(((4096000.0/25.0) * static_cast<Double_t>(m_timeStart )) + 0.5);
@@ -1209,7 +1210,7 @@ Int_t DataProcess::processRoot()
 
         //
         // loop entries in centTree
-        for (UInt_t entryCent = currChunkCent; entryCent < m_nCent; entryCent++)
+        for (Long64_t entryCent = currChunkCent; entryCent < m_nCent; entryCent++)
         {
             m_rawTree->GetEntry(entryCent);
             if (m_nTime == 0 && entryCent % 100000 == 0) std::cout << "Entry " << entryCent << " of " << m_nCent << " done!" << std::endl;
@@ -1386,7 +1387,7 @@ Int_t DataProcess::processRoot()
     return 0;
 }
 
-void DataProcess::finishMsg(TString fileName, TString operation, UInt_t events, Int_t fileCounter)
+void DataProcess::finishMsg(TString fileName, TString operation, ULong64_t events, Int_t fileCounter)
 {
     std::cout << "==============================================="  << std::endl;
     std::cout << fileName << std::endl;
