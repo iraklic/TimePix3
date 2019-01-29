@@ -1041,8 +1041,8 @@ Int_t DataProcess::processDat()
 
                     if (m_bCentroid && k != 0)
                     {
-                        m_histCentToTvsToA->Fill((m_ToAs[k]-tmpToA)*(25.0/4096), ( m_ToTs[k]));
-                        m_histCentScan[(UInt_t) (tmpToT/25)]->Fill((m_ToAs[k]-tmpToA)*(25.0/4096), ( m_ToTs[k]));
+                        m_histCentToTvsToA->Fill((m_ToAs[k] - tmpToA) * (25.0/4096), (m_ToTs[k]));
+                        m_histCentScan[static_cast<UInt_t>(tmpToT / 25)]->Fill((m_ToAs[k] - tmpToA) * (25.0 / 4096), (m_ToTs[k]));
                     }
 
                     m_Cols[k] = 0;
@@ -1463,6 +1463,7 @@ void DataProcess::createCorrection()
 
     while (process)
     {
+        std::cout << cntToT << ", ";
         Bool_t inner = kTRUE;
         int cnt = 1;
         while (inner)
@@ -1472,7 +1473,7 @@ void DataProcess::createCorrection()
 
             for (Int_t binx = m_histCentScan[cntToT]->GetXaxis()->GetFirst(); binx < m_histCentScan[cntToT]->GetXaxis()->GetLast(); binx++)
             {
-                tmpBinContent = m_histCentScan[cntToT]->GetBinContent(binx,cnt+1);
+                tmpBinContent = m_histCentScan[cntToT]->GetBinContent(binx, cnt + 1);
                 if (tmpBinContent > 10)
                 {
                     tmpToA += (((1.5625 * ((Float_t) binx)) - 468.75) * tmpBinContent);
@@ -1500,6 +1501,7 @@ void DataProcess::createCorrection()
         if (++cntToT > 1023)
             process = kFALSE;
     }
+    std::cout << std::endl;
 
     std::cout << "========= MAKING CORR TABLE ==================="  << std::endl;
 
