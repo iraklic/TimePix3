@@ -26,7 +26,10 @@ void DataProcess::Init()
 {
     // set predefined options in case user definition is missing
     setNEntries(0xFFFFFFFF);
+
+    m_bCorrCsv = kFALSE;
     setCorrection(CorrType::corrNew);
+
     setProcess(procAll);
     setOptions();
 
@@ -75,6 +78,7 @@ void DataProcess::setCorrection(CorrType correction, TString fileNameCorrection)
             std::cout << "Creating new correction" << std::endl;
             if (fileNameCorrection.Sizeof() > 1 )
             {
+                closeCorr();
                 std::cout << " - with file" << m_correctionName << std::endl;
                 openCorr(kTRUE);
                 m_bCorrCsv = kTRUE;
@@ -1063,7 +1067,7 @@ Int_t DataProcess::processDat()
             // end of read data
             if (Cols.size() == 0)
             {
-                m_nRaw = m_rawTree->GetEntries();
+                m_nCent = m_rawTree->GetEntries();
                 m_nTime = m_timeTree->GetEntries();
                 std::cout << "===" << backjumpcnt << " backward time jumps found ==" << std::endl;
 
@@ -1444,8 +1448,8 @@ void DataProcess::createCorrection()
     LookupTable tmpLookupTable;
     int cntToT = 1;
     Bool_t process = kTRUE;
-    Int_t tmpBinContent;
-    Int_t binCounter;
+    Int_t tmpBinContent = 0;
+    Int_t binCounter = 0;
 
     for (Int_t indexEntry = 0; indexEntry < 1023; indexEntry++)
     {
@@ -1455,11 +1459,7 @@ void DataProcess::createCorrection()
         }
     }
 
-//    tmpLookupTable.ToT  = 0;
-//    tmpLookupTable.dToA = 0;
-//    m_lookupTable.push_back(tmpLookupTable);
-
-    std::cout << "==============================================="  << std::endl;
+    std::cout << "========= MAKING CORR MAPS ===================="  << std::endl;
 
     while (process)
     {
@@ -1497,38 +1497,11 @@ void DataProcess::createCorrection()
                 inner = kFALSE;
         }
 
-//        m_histCentToTvsToA->GetYaxis()->SetRange(cntToT+1,cntToT+1);
-//        m_histCentToTvsToA->GetXaxis()->SetRange(m_histCentToTvsToA->GetXaxis()->GetFirst(),m_histCentToTvsToA->GetXaxis()->GetLast());
-
-//        tmpLookupTable.ToT = cntToT * 25;
-//        binCounter = 0;
-//        tmpLookupTable.dToA = 0;
-////        tmpLookupTable.dToA = m_histCentToTvsToA->GetMean();
-//        for (Int_t binx = m_histCentToTvsToA->GetXaxis()->GetFirst(); binx < m_histCentToTvsToA->GetXaxis()->GetLast(); binx++)
-//        {
-//            tmpBinContent = m_histCentToTvsToA->GetBinContent(binx,cntToT+1);
-//            if (tmpBinContent > 10)
-//            {
-//                tmpLookupTable.dToA += (((1.5625 * ((Float_t) binx)) - 234.375) * tmpBinContent);
-//                binCounter += tmpBinContent;
-//            }
-//        }
-//        if (binCounter != 0)
-//            tmpLookupTable.dToA /= binCounter;
-
-////        Int_t binx, biny, binz;
-////        m_histCentToTvsToA->GetMaximumBin(binx, biny, binz);
-////        tmpLookupTable.dToA = (1.5625 * ((Float_t) binx)) - 15.625;
-
-////        m_histCentToTvsToA->GetXaxis()->SetRange(11,m_histCentToTvsToA->GetXaxis()->GetLast());
-////        m_histCentToTvsToA->GetMaximumBin(binx, biny, binz);
-////        tmpLookupTable.dCent = (1.5625 * ((Float_t) binx)) - 15.625;
-
-//        m_lookupTable.push_back(tmpLookupTable);
-
         if (++cntToT > 1023)
             process = kFALSE;
     }
+
+    std::cout << "========= MAKING CORR TABLE ==================="  << std::endl;
 
     for (Int_t indexEntry = 0; indexEntry < 1023; indexEntry++)
     {
@@ -1553,28 +1526,4 @@ void DataProcess::createCorrection()
         std::cout << "ToT: "  << m_lookupTable.at(indexEntry).ToT << std::endl;
         std::cout << "dToA: " << m_lookupTable.at(indexEntry).dToA  << std::endl;
     }
-
-
-//    Float_t shift = 0;//m_lookupTable.at(60).dToA;
-//    for (UInt_t index = 0; index < m_lookupTable.size(); index++)
-//    {
-//        // correcting to middle value
-//        m_lookupTable.at(index).dToA = shift - m_lookupTable.at(index).dToA ;
-//        m_lookupTable.at(index).dToA /= 1e3;
-
-////        m_lookupTable.at(index).dCent = shift - m_lookupTable.at(index).dCent ;
-////        m_lookupTable.at(index).dCent /= 1e3;
-
-//        if (m_bCorrCsv)
-//            fprintf(m_fileCorr,"%u, %f\n", m_lookupTable.at(index).ToT, m_lookupTable.at(index).dToA);
-//        std::cout << "==============================================="  << std::endl;
-//        std::cout << "ToT: "  << m_lookupTable.at(index).ToT << std::endl;
-////        std::cout << "ToA: "  << shift - (1e3 * m_lookupTable.at(index).dToA)  << std::endl;
-//        std::cout << "dToA: " << m_lookupTable.at(index).dToA  << std::endl;
-////        std::cout << "dCent: "<< m_lookupTable.at(index).dCent << std::endl;
-//    }
-
-//    m_histCentToTvsToA->GetYaxis()->SetRange();
-//    m_histCentToTvsToA->GetXaxis()->SetRange();
-
 }
