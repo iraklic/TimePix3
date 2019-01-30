@@ -1434,11 +1434,11 @@ void DataProcess::loadCorrection()
     std::cout << "==============================================="  << std::endl;
 
     LookupTable tmpLookupTable;
-    while ( fscanf(m_fileCorr,"%u, %f\n", &tmpLookupTable.ToT, &tmpLookupTable.dToA) == 2)
+    while ( fscanf(m_fileCorr,"%u, %lf\n", &tmpLookupTable.ToT, &tmpLookupTable.dToA) == 2)
     {
         m_lookupTable.push_back(tmpLookupTable);
-        std::cout << "ToT: "  << tmpLookupTable.ToT << std::endl;
-        std::cout << "dToA: " << tmpLookupTable.dToA << std::endl;
+        std::cout << "ToT: "  << tmpLookupTable.ToT;
+        std::cout << ", dToA: " << tmpLookupTable.dToA << std::endl;
     }
 }
 
