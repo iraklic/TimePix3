@@ -80,7 +80,7 @@ private:
     void Init();
 
     Int_t processFileNames();
-    void finishMsg(TString fileName, TString operation, ULong64_t events, Int_t fileCounter = 1);
+    void finishMsg(TString fileName, TString operation, ULong64_t events, ULong64_t fileCounter = 1);
     ULong64_t roundToNs(ULong64_t number);
 
     Int_t openCorr(Bool_t create = kTRUE);
@@ -135,7 +135,7 @@ private:
     Double_t  m_timeWindow;
     Double_t  m_timeStart;
 
-    UInt_t  m_linesPerFile;
+    Long64_t  m_linesPerFile;
 
     //
     // centroiding parameters

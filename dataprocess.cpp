@@ -234,13 +234,13 @@ void DataProcess::plotStandardData()
 
     canvas->cd(1);
     gPad->SetLogz();
-    gPad->SetRightMargin(0.15);
+    gPad->SetRightMargin(static_cast<Float_t>(0.15));
     m_pixelMap->SetStats(kFALSE);
     m_pixelMap->Draw("colz");
 
     canvas->cd(2);
     gPad->SetLogz();
-    gPad->SetRightMargin(0.15);
+    gPad->SetRightMargin(static_cast<Float_t>(0.15));
     m_pixelMapToT->SetStats(kFALSE);
     m_pixelMapToT->Draw("colz");
 
@@ -248,35 +248,35 @@ void DataProcess::plotStandardData()
     {
         canvas->cd(3);
         gPad->SetLogz();
-        gPad->SetRightMargin(0.15);
+        gPad->SetRightMargin(static_cast<Float_t>(0.15));
         m_pixelCentMap->SetStats(kFALSE);
         m_pixelCentMap->Draw("colz");
     }
 
     canvas->cd(5);
-    gPad->SetRightMargin(0.15);
+    gPad->SetRightMargin(static_cast<Float_t>(0.15));
     m_histToT->Draw();
 
     canvas->cd(6);
-    gPad->SetRightMargin(0.15);
+    gPad->SetRightMargin(static_cast<Float_t>(0.15));
     m_histToA->Draw();
 
     if (m_trigCnt != 0)
     {
         canvas->cd(4);
-        gPad->SetRightMargin(0.15);
+        gPad->SetRightMargin(static_cast<Float_t>(0.15));
         m_histTrigger->Draw();
 
         if ( m_bTrigToA )
         {
             canvas->cd(7);
-            gPad->SetRightMargin(0.15);
+            gPad->SetRightMargin(static_cast<Float_t>(0.15));
             m_histSpectrum->Draw();
 
             if (m_bCentroid)
             {
                 canvas->cd(8);
-                gPad->SetRightMargin(0.15);
+                gPad->SetRightMargin(static_cast<Float_t>(0.15));
                 m_histCentSpectrum->Draw();
             }
         }
@@ -1095,8 +1095,8 @@ Int_t DataProcess::processDat()
 
 Int_t DataProcess::processRoot()
 {
-    UInt_t lineCounter = 0;
-    UInt_t lineCounterCent = 0;
+    Long64_t lineCounter = 0;
+    Long64_t lineCounterCent = 0;
     Long64_t currChunkCent = 0;
     Long64_t entryTime = 0;
 
@@ -1251,9 +1251,9 @@ Int_t DataProcess::processRoot()
 
                         //
                         // multiple file creation
-                        if ((lineCounterCent % m_linesPerFile == 0) && !m_bSingleFile)
+                        if (!m_bSingleFile && (lineCounterCent % m_linesPerFile == 0))
                         {
-                            if (openCsv(dtCent, TString::Format("%d", lineCounterCent / m_linesPerFile))) return -1;
+                            if (openCsv(dtCent, TString::Format("%lld", lineCounterCent / m_linesPerFile))) return -1;
                         }
                         //
                         // write centroid data
@@ -1300,7 +1300,7 @@ Int_t DataProcess::processRoot()
                     // single file creation
                     if (lineCounter % m_linesPerFile == 0 && !m_bSingleFile)
                     {
-                        if (openCsv(dtStandard, TString::Format("%d", lineCounter / m_linesPerFile))) return -1;
+                        if (openCsv(dtStandard, TString::Format("%lld", lineCounter / m_linesPerFile))) return -1;
                     }
 
                     //
@@ -1347,7 +1347,12 @@ Int_t DataProcess::processRoot()
 
                     if (m_bTrigToA)
                     {
-                        ToATrig[entryRaw] = (m_ToAs[entryRaw] - m_trigTime) + static_cast<ULong64_t>(dToA * (4096000.0/25.0));
+                        if (dToA < 0)
+                        {
+                            ToATrig[entryRaw] = (m_ToAs[entryRaw] - m_trigTime) - static_cast<ULong64_t>((std::abs(dToA)) * (4096000.0/25.0));
+                        }
+                        else
+                            ToATrig[entryRaw] = (m_ToAs[entryRaw] - m_trigTime) + static_cast<ULong64_t>((dToA) * (4096000.0/25.0));
 
                         ToF[entryRaw] = ((static_cast<Double_t>( m_ToAs[entryRaw] - m_trigTime ) * 25.0 ) / 4096000.0);
                         m_histSpectrum->Fill( ToF[entryRaw] );
@@ -1360,7 +1365,11 @@ Int_t DataProcess::processRoot()
                         if (m_bCsv && m_correction != corrOff) fprintf(m_filesCsv.back(), "%f,",ToF[entryRaw]);
                     }
 
-                    m_ToAs[entryRaw] += (ULong64_t) ((1 + dToA)*(4096000.0/25.0));
+                    if (dToA < 0)
+                        m_ToAs[entryRaw] -= static_cast<ULong64_t>((-dToA)*(4096000.0/25.0));
+                    else
+                        m_ToAs[entryRaw] += static_cast<ULong64_t>((dToA)*(4096000.0/25.0));
+
 
                     if (m_bCsv)
                         fprintf(m_filesCsv.back(), "\n");
@@ -1371,12 +1380,6 @@ Int_t DataProcess::processRoot()
                 {
                     m_procTree->Fill();
                 }
-
-//                for (UInt_t entryRaw = 0; entryRaw < MAXHITS; entryRaw++)
-//                {
-//                    ToATrig[entryRaw] = 0;
-//                    ToF[entryRaw] = 0;
-//                }
             }
         }
 
@@ -1386,12 +1389,12 @@ Int_t DataProcess::processRoot()
         entryTime++;
     }
 
-    finishMsg(m_fileNameRoot,"processing root raw", lineCounterCent, m_filesCsv.size());
+    finishMsg(m_fileNameRoot,"processing root raw", static_cast<ULong64_t>(lineCounterCent), m_filesCsv.size());
 
     return 0;
 }
 
-void DataProcess::finishMsg(TString fileName, TString operation, ULong64_t events, Int_t fileCounter)
+void DataProcess::finishMsg(TString fileName, TString operation, ULong64_t events, ULong64_t fileCounter)
 {
     std::cout << "==============================================="  << std::endl;
     std::cout << fileName << std::endl;
@@ -1473,10 +1476,10 @@ void DataProcess::createCorrection()
 
             for (Int_t binx = m_histCentScan[cntToT]->GetXaxis()->GetFirst(); binx < m_histCentScan[cntToT]->GetXaxis()->GetLast(); binx++)
             {
-                tmpBinContent = m_histCentScan[cntToT]->GetBinContent(binx, cnt + 1);
+                tmpBinContent = static_cast<Int_t>(m_histCentScan[cntToT]->GetBinContent(binx, cnt + 1));
                 if (tmpBinContent > 10)
                 {
-                    tmpToA += (((1.5625 * ((Float_t) binx)) - 468.75) * tmpBinContent);
+                    tmpToA += static_cast<Float_t>(((1.5625 * static_cast<Double_t>(binx)) - 468.75) * tmpBinContent);
                     binCounter += tmpBinContent;
                 }
             }
