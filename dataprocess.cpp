@@ -26,8 +26,8 @@ void DataProcess::Init()
 {
     m_chainCounter = 0;
 
-    //max entries in one tree set to 32 bits
-    m_treeMaxEntries = 0xFFFFFFFF;
+    //max entries in one tree set to 30 bits
+    m_treeMaxEntries = 0x02000000;
 
     m_bCorrCsv = kFALSE;
     setCorrection(CorrType::corrNew);
