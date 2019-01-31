@@ -24,8 +24,10 @@ DataProcess::~DataProcess()
 
 void DataProcess::Init()
 {
-    // set predefined options in case user definition is missing
-    setNEntries(0xFFFFFFFF);
+    m_chainCounter = 0;
+
+    //max entries in one tree set to 32 bits
+    m_treeMaxEntries = 0xFFFFFFFF;
 
     m_bCorrCsv = kFALSE;
     setCorrection(CorrType::corrNew);
@@ -53,9 +55,9 @@ void DataProcess::setName(TString fileNameInput)
 
 void DataProcess::setName(TObjString* fileNameInput, Int_t size)
 {
-    m_numInputs = size;
+    m_numInputs = static_cast<ULong64_t>(size);
 
-    for (Int_t input = 0; input < m_numInputs; input++)
+    for (ULong64_t input = 0; input < m_numInputs; input++)
     {
         m_fileNameInput.push_back( fileNameInput[input].GetString()) ;
         std::cout << "file name input " << m_fileNameInput.back() << " number " << input << std::endl;
@@ -291,20 +293,20 @@ Int_t DataProcess::processFileNames()
     deque<Int_t > inputNum;
     TString tmpString;
 
-    for (Int_t input = 0; input < m_numInputs; input++)
+    for (ULong64_t input = 0; input < m_numInputs; input++)
     {
         if (m_fileNameInput[input].Sizeof()==1) return -1;
 
-        UInt_t dotPos  = m_fileNameInput[input].Last('.');
-        UInt_t dashPos = m_fileNameInput[input].Last('-');
+        Int_t dotPos  = m_fileNameInput[input].Last('.');
+        Int_t dashPos = m_fileNameInput[input].Last('-');
         tmpString = m_fileNameInput[input];
         TString tmpNum ( tmpString(dashPos+1,dotPos-dashPos-1) );
         inputNum.push_back( tmpNum.Atoi() );
     }
 
-    for (Int_t input = 0; input < m_numInputs; input++)
+    for (ULong64_t input = 0; input < m_numInputs; input++)
     {
-        UInt_t j = input;
+        ULong64_t j = input;
         while (j > 0 && inputNum[j-1] > inputNum[j])
         {
             swap(inputNum[j-1],inputNum[j]);
@@ -320,21 +322,21 @@ Int_t DataProcess::processFileNames()
     else if (tmpString.EndsWith(".tpx3"))
         m_type = dtTpx;
 
-    UInt_t slash = tmpString.Last('/');
-    m_fileNamePath = tmpString(0,slash+1);
+    Int_t slash = tmpString.Last('/');
+    m_fileNamePath = tmpString(0, slash + 1);
 
-    for (Int_t input = 0; input < m_numInputs; input++)
+    for (ULong64_t input = 0; input < m_numInputs; input++)
     {
-        m_fileNameInput[input].Remove(0,slash+1);
+        m_fileNameInput[input].Remove(0, slash + 1);
         m_fileNameDat.push_back( m_fileNameInput[input] );
 
         //
         // if one file only, keep number
-        UInt_t repPos;
+        Int_t repPos;
         if (m_numInputs == 1)   repPos = m_fileNameInput[input].Last('.');
         else                    repPos = m_fileNameInput[input].Last('-');
 
-        m_fileNameRoot      = m_fileNameInput[input].Replace(repPos, 200, ".root");
+        m_fileName          = m_fileNameInput[input].Replace(repPos, 200, ".");
         m_fileNamePdf       = m_fileNameInput[input].Replace(repPos, 200, ".pdf");
         m_fileNameCsv       = m_fileNameInput[input].Replace(repPos, 200, ".csv");
         m_fileNameCentCsv   = m_fileNameInput[input].Replace(repPos, 200, "_cent.csv");
@@ -364,7 +366,7 @@ Int_t DataProcess::openCorr(Bool_t create)
     return 0;
 }
 
-Int_t DataProcess::openDat(Int_t fileCounter)
+Int_t DataProcess::openDat(ULong64_t fileCounter)
 {
     FILE* fileDat = fopen(m_fileNamePath + m_fileNameDat[fileCounter], "r");
     std::cout << m_fileNameDat[fileCounter] << " at " << m_fileNamePath << std::endl;
@@ -393,7 +395,7 @@ Int_t DataProcess::openCsv(DataType type, TString fileCounter)
     {
         fileNameTmp = m_fileNameCsv;
     }
-    UInt_t dotPos = fileNameTmp.Last('.');
+    Int_t dotPos = fileNameTmp.Last('.');
 
     if (fileCounter.Sizeof() != 1)
     {
@@ -438,18 +440,23 @@ Int_t DataProcess::openCsv(DataType type, TString fileCounter)
     return 0;
 }
 
-Int_t DataProcess::openRoot()
+Int_t DataProcess::openRoot(ULong64_t fileCounter)
 {
     //
     // Open file
+    TFile * fileRoot = NULL;
+
+    TString fileNameTmp = m_fileName;
+    m_fileNameRoot.push_back(fileNameTmp.Replace(fileNameTmp.Last('.'),200, "_c" + TString::Format("%lld", fileCounter) + ".root"));
+
     if ( m_process == procDat || m_process == procAll)
     {
-        m_fileRoot = new TFile(m_fileNamePath + m_fileNameRoot, "RECREATE");
-        std::cout << m_fileNameRoot << " at " << m_fileNamePath << std::endl;
+        fileRoot = new TFile(m_fileNamePath + m_fileNameRoot.back(), "RECREATE");
+        std::cout << m_fileNameRoot.back() << " at " << m_fileNamePath << std::endl;
 
         //
         // check if file opened correctly
-        if (m_fileRoot == NULL)
+        if (fileRoot == NULL)
         {
             std::cout << " ========================================== " << std::endl;
             std::cout << " == COULD NOT OPEN ROOT, PLEASE CHECK IT == " << std::endl;
@@ -459,56 +466,59 @@ Int_t DataProcess::openRoot()
 
         //
         // create trees
-        m_rawTree = new TTree("rawtree", "raw data, Version 0.1.0");
-        m_rawTree->Branch("Size", &m_Size, "Size/i");
-        m_rawTree->Branch("Col",   m_Cols, "Col[Size]/i");
-        m_rawTree->Branch("Row",   m_Rows, "Row[Size]/i");
-        m_rawTree->Branch("ToT",   m_ToTs, "ToT[Size]/i");
-        m_rawTree->Branch("ToA",   m_ToAs, "ToA[Size]/l");    // l for long
+        m_rawTree.push_back(new TTree("rawtree", "raw data, Version 0.1.0"));
+        m_rawTree.back()->Branch("Size", &m_Size, "Size/i");
+        m_rawTree.back()->Branch("Col",   m_Cols, "Col[Size]/i");
+        m_rawTree.back()->Branch("Row",   m_Rows, "Row[Size]/i");
+        m_rawTree.back()->Branch("ToT",   m_ToTs, "ToT[Size]/i");
+        m_rawTree.back()->Branch("ToA",   m_ToAs, "ToA[Size]/l");    // l for long
 
-        m_timeTree = new TTree("timetree", "TDC counts");
-        m_timeTree->Branch("TrigCntr", &m_trigCnt, "TrigCntr/i");
-        m_timeTree->Branch("TrigTime", &m_trigTime,"TrigTime/l");
+        m_timeTree.push_back(new TTree("timetree", "TDC counts"));
+        m_timeTree.back()->Branch("TrigCntr", &m_trigCnt, "TrigCntr/i");
+        m_timeTree.back()->Branch("TrigTime", &m_trigTime,"TrigTime/l");
 
         //
         // create plots
-        m_pixelMap      = new TH2I("pixelMap", "Col:Row", 256, -0.5, 255.5, 256, -0.5, 255.5);
-        m_pixelMapToT   = new TH2F("pixelMapToT", "Col:Row:{ToT}", 256, -0.5, 255.5, 256, -0.5, 255.5);
-        m_pixelMapToA   = new TH2F("pixelMapToA", "Col:Row:{ToA}", 256, -0.5, 255.5, 256, -0.5, 255.5);
-
-        m_histToT       = new TH1I("histToT", "ToT", 200, 0, 5000);
-        m_histToA       = new TH1I("histToA", "ToA", 1000, 0, 0);
-
-        m_pixelCentMap      = new TH2I("pixelCentMap", "Col:Row", 256, -0.5, 255.5, 256, -0.5, 255.5);
-        m_pixelCentMapToT   = new TH2F("pixelCentMapToT", "Col:Row:{ToT}", 256, -0.5, 255.5, 256, -0.5, 255.5);
-        m_pixelCentMapToA   = new TH2F("pixelCentMapToA", "Col:Row:{ToA}", 256, -0.5, 255.5, 256, -0.5, 255.5);
-
-        m_histCentToT       = new TH1I("histCentToT", "ToT", 200, 0, 5000);
-        m_histCentToA       = new TH1I("histCentToA", "ToA", 1000, 0, 0);
-
-        m_scanDir = m_fileRoot->mkdir("ToTvsToA_scan");
-        m_scanDir->cd();
-        for (int totCounter = 0; totCounter < 1023; totCounter++)
+        if (m_filesRoot.size() == 0)
         {
-            m_histCentScan[totCounter] = new TH2F(Form("ToTvsToA_%d",totCounter*25),Form("ToTvsToA_%d",totCounter*25), 600, -468.75, 468.75, 400, 0, 10000);
+            m_pixelMap      = new TH2I("pixelMap", "Col:Row", 256, -0.5, 255.5, 256, -0.5, 255.5);
+            m_pixelMapToT   = new TH2F("pixelMapToT", "Col:Row:{ToT}", 256, -0.5, 255.5, 256, -0.5, 255.5);
+            m_pixelMapToA   = new TH2F("pixelMapToA", "Col:Row:{ToA}", 256, -0.5, 255.5, 256, -0.5, 255.5);
+
+            m_histToT       = new TH1I("histToT", "ToT", 200, 0, 5000);
+            m_histToA       = new TH1I("histToA", "ToA", 1000, 0, 0);
+
+            m_pixelCentMap      = new TH2I("pixelCentMap", "Col:Row", 256, -0.5, 255.5, 256, -0.5, 255.5);
+            m_pixelCentMapToT   = new TH2F("pixelCentMapToT", "Col:Row:{ToT}", 256, -0.5, 255.5, 256, -0.5, 255.5);
+            m_pixelCentMapToA   = new TH2F("pixelCentMapToA", "Col:Row:{ToA}", 256, -0.5, 255.5, 256, -0.5, 255.5);
+
+            m_histCentToT       = new TH1I("histCentToT", "ToT", 200, 0, 5000);
+            m_histCentToA       = new TH1I("histCentToA", "ToA", 1000, 0, 0);
+
+            m_scanDir = fileRoot->mkdir("ToTvsToA_scan");
+            m_scanDir->cd();
+            for (int totCounter = 0; totCounter < 1023; totCounter++)
+            {
+                m_histCentScan[totCounter] = new TH2F(Form("ToTvsToA_%d",totCounter*25),Form("ToTvsToA_%d",totCounter*25), 600, -468.75, 468.75, 400, 0, 10000);
+            }
+            fileRoot->cd();
+            m_mapCorr = new TH2F("cToTvsToT", "cToT:ToT", 400, 0, 10000, 400, 0, 10000);
+            m_mapCorrErr = new TH2F("cToTvsToTErr", "cToT:ToT:{Err}", 400, 0, 10000, 400, 0, 10000);
+
+            m_histCentToTvsToA  = new TH2F("CentroidToTvsToA", "ToA:ToT", 300, -234.375, 234.375, 400, 0, 10000);
+            m_histCorrToTvsToA  = new TH2F("CorrectedToTvsToA", "ToA:ToT", 300, -234.375, 234.375, 400, 0, 10000);
+
+            m_histTrigger   = new TH1I("histTrigger", "Trigger", 1000, 0, 0);
         }
-        m_fileRoot->cd();
-        m_mapCorr = new TH2F("cToTvsToT", "cToT:ToT", 400, 0, 10000, 400, 0, 10000);
-        m_mapCorrErr = new TH2F("cToTvsToTErr", "cToT:ToT:{Err}", 400, 0, 10000, 400, 0, 10000);
-
-        m_histCentToTvsToA  = new TH2F("CentroidToTvsToA", "ToA:ToT", 300, -234.375, 234.375, 400, 0, 10000);
-        m_histCorrToTvsToA  = new TH2F("CorrectedToTvsToA", "ToA:ToT", 300, -234.375, 234.375, 400, 0, 10000);
-
-        m_histTrigger   = new TH1I("histTrigger", "Trigger", 1000, 0, 0);
     }
     else if (m_process == procRoot)
     {
-        m_fileRoot = new TFile(m_fileNamePath + m_fileNameRoot, "UPDATE");
-        std::cout << m_fileNameRoot << " at " << m_fileNamePath << std::endl;
+        fileRoot = new TFile(m_fileNamePath + m_fileNameRoot.back(), "UPDATE");
+        std::cout << m_fileNameRoot.back() << " at " << m_fileNamePath << std::endl;
 
         //
         // check if file opened correctly
-        if (m_fileRoot == NULL)
+        if (fileRoot == NULL)
         {
             std::cout << " ========================================== " << std::endl;
             std::cout << " == COULD NOT OPEN ROOT, PLEASE CHECK IT == " << std::endl;
@@ -518,42 +528,82 @@ Int_t DataProcess::openRoot()
 
         //
         // read trees
-        m_rawTree = (TTree * ) m_fileRoot->Get("rawtree");
-        m_rawTree->SetBranchAddress("Size", &m_Size);
-        m_rawTree->SetBranchAddress("Col",  m_Cols);
-        m_rawTree->SetBranchAddress("Row",  m_Rows);
-        m_rawTree->SetBranchAddress("ToT",  m_ToTs);
-        m_rawTree->SetBranchAddress("ToA",  m_ToAs);
+        m_rawTree.push_back(reinterpret_cast<TTree*>(fileRoot->Get("rawtree")));
+        m_rawTree.back()->SetBranchAddress("Size", &m_Size);
+        m_rawTree.back()->SetBranchAddress("Col",  m_Cols);
+        m_rawTree.back()->SetBranchAddress("Row",  m_Rows);
+        m_rawTree.back()->SetBranchAddress("ToT",  m_ToTs);
+        m_rawTree.back()->SetBranchAddress("ToA",  m_ToAs);
 
-        m_timeTree = (TTree * ) m_fileRoot->Get("timetree");
-        m_timeTree->SetBranchAddress("TrigCntr", &m_trigCnt);
-        m_timeTree->SetBranchAddress("TrigTime", &m_trigTime);
+        m_timeTree.push_back(reinterpret_cast<TTree*>(fileRoot->Get("timetree")));
+        m_timeTree.back()->SetBranchAddress("TrigCntr", &m_trigCnt);
+        m_timeTree.back()->SetBranchAddress("TrigTime", &m_trigTime);
 
-        //
-        // read plots
-        m_pixelMap      = (TH2I *) m_fileRoot->Get("pixelMap");
-        m_pixelMapToT   = (TH2F *) m_fileRoot->Get("pixelMapToT");
-        m_pixelMapToA   = (TH2F *) m_fileRoot->Get("pixelMapToA");
+        if (m_filesRoot.size() == 0)
+        {
+            //
+            // read plots
+            m_pixelMap      = reinterpret_cast<TH2I*>(fileRoot->Get("pixelMap"));
+            m_pixelMapToT   = reinterpret_cast<TH2F*>(fileRoot->Get("pixelMapToT"));
+            m_pixelMapToA   = reinterpret_cast<TH2F*>(fileRoot->Get("pixelMapToA"));
 
-        m_histToT       = (TH1I *) m_fileRoot->Get("histToT");
-        m_histToA       = (TH1I *) m_fileRoot->Get("histToA");
+            m_histToT       = reinterpret_cast<TH1I*>(fileRoot->Get("histToT"));
+            m_histToA       = reinterpret_cast<TH1I*>(fileRoot->Get("histToA"));
 
-        m_pixelCentMap      = (TH2I *) m_fileRoot->Get("pixelCentMap");
-        m_pixelCentMapToT   = (TH2F *) m_fileRoot->Get("pixelCentMapToT");
-        m_pixelCentMapToA   = (TH2F *) m_fileRoot->Get("pixelCentMapToA");
+            m_pixelCentMap      = reinterpret_cast<TH2I*>(fileRoot->Get("pixelCentMap"));
+            m_pixelCentMapToT   = reinterpret_cast<TH2F*>(fileRoot->Get("pixelCentMapToT"));
+            m_pixelCentMapToA   = reinterpret_cast<TH2F*>(fileRoot->Get("pixelCentMapToA"));
 
-        m_histCentToT       = (TH1I *) m_fileRoot->Get("histCentToT");
-        m_histCentToA       = (TH1I *) m_fileRoot->Get("histCentToA");
+            m_histCentToT       = reinterpret_cast<TH1I*>(fileRoot->Get("histCentToT"));
+            m_histCentToA       = reinterpret_cast<TH1I*>(fileRoot->Get("histCentToA"));
 
-        m_histCentToTvsToA  = (TH2F *) m_fileRoot->Get("CentroidToTvsToA");
-        m_histCorrToTvsToA  = (TH2F *) m_fileRoot->Get("CorrectedToTvsToA");
+            m_histCentToTvsToA  = reinterpret_cast<TH2F*>(fileRoot->Get("CentroidToTvsToA"));
+            m_histCorrToTvsToA  = reinterpret_cast<TH2F*>(fileRoot->Get("CorrectedToTvsToA"));
 
-        m_histTrigger   = (TH1I *) m_fileRoot->Get("histTrigger");
+            m_histTrigger   = reinterpret_cast<TH1I*>(fileRoot->Get("histTrigger"));
+        }
     }
 
-    m_fileRoot->cd();
+    if (fileRoot != NULL)
+    {
+        m_filesRoot.push_back(fileRoot);
+        m_filesRoot.back()->cd();
+        return 0;
+    }
+    else
+    {
+        return -1;
+    }
+}
 
-    return 0;
+void DataProcess::openChain()
+{
+    std::cout << " ========================================== " << std::endl;
+    std::cout << " ============ SETTING UP CHAIN ============ " << std::endl;
+    std::cout << " ========================================== " << std::endl;
+
+    m_rawChain  = new TChain("rawtree" );
+    m_rawChain->SetBranchAddress("Size", &m_Size);
+    m_rawChain->SetBranchAddress("Col",  m_Cols);
+    m_rawChain->SetBranchAddress("Row",  m_Rows);
+    m_rawChain->SetBranchAddress("ToT",  m_ToTs);
+    m_rawChain->SetBranchAddress("ToA",  m_ToAs);
+
+    m_timeChain = new TChain("timetree");
+    m_timeChain->SetBranchAddress("TrigCntr", &m_trigCnt);
+    m_timeChain->SetBranchAddress("TrigTime", &m_trigTime);
+
+    for (ULong64_t nameCnt = 0; nameCnt < m_fileNameRoot.size(); nameCnt++)
+    {
+        std::cout << "Add: " << m_fileNamePath + m_fileNameRoot[nameCnt] << std::endl;
+
+        m_filesRoot[nameCnt]->cd();
+        m_rawTree[nameCnt]->Write();
+        m_timeTree[nameCnt]->Write();
+
+        m_rawChain ->Add(m_fileNamePath + m_fileNameRoot[nameCnt]);
+        m_timeChain->Add(m_fileNamePath + m_fileNameRoot[nameCnt]);
+    }
 }
 
 void DataProcess::closeCorr()
@@ -596,15 +646,17 @@ void DataProcess::closeCsv()
 
 void DataProcess::closeRoot()
 {
-    m_nCent = m_rawTree->GetEntries();
-    m_nTime = m_timeTree->GetEntries();
-
     if (m_nCent != 0 || m_nTime != 0)
         plotStandardData();
 
-    m_fileRoot->cd();
-    m_fileRoot->Write();
-    m_fileRoot->Close();
+    while (m_filesRoot.size() != 0)
+    {
+        m_filesRoot.front()->cd();
+        m_filesRoot.front()->Write();
+        m_filesRoot.front()->Close();
+
+        m_filesRoot.pop_front();
+    }
 }
 
 Int_t DataProcess::skipHeader()
@@ -737,9 +789,14 @@ Int_t DataProcess::processDat()
     UInt_t    posX, posY;
     Bool_t    indexFound;
 
-
     UInt_t backjumpcnt = 0;
-    Int_t curInput = 0;
+    ULong64_t curInput = 0;
+
+    ULong64_t treeEntry = 0;
+    ULong64_t chainCounter = 0;
+
+    m_nCents.push_back(0);
+    m_nTimes.push_back(0);
 
     //
     // skip main header and obtain device ID
@@ -748,9 +805,14 @@ Int_t DataProcess::processDat()
 
     //
     // Main loop over all entries
-    // nentries is either 1000000000 or user defined
+    // nentries is either infinite or user defined
     while (!feof(m_filesDat.back()) && (m_pixelCounter < m_maxEntries || m_maxEntries == 0))
     {
+        if (treeEntry >= m_treeMaxEntries)
+        {
+            openRoot(++chainCounter);
+            treeEntry = 0;
+        }
         //
         // read entries, write out each 10^5
         retVal = fread( &pixdata, sizeof(ULong64_t), 1, m_filesDat.back());
@@ -760,12 +822,14 @@ Int_t DataProcess::processDat()
         // reading data and saving them to deques or timeTrees
         if (retVal == 1)
         {
+
             header = ((pixdata & 0xF000000000000000) >> 60) & 0xF;
 
             //
             // finding header type (data part - frames/data driven)
             if (header == 0xA || header == 0xB)
             {
+                treeEntry++;
                 m_pixelCounter++;
 
                 //
@@ -853,7 +917,7 @@ Int_t DataProcess::processDat()
 
                         //
                         // fill timeTree and trigger histogram
-                        m_timeTree->Fill();
+                        m_timeTree.back()->Fill();
                         m_histTrigger->Fill(m_trigTime);
 
                         prev_trigtime_coarse = trigtime_coarse;
@@ -880,8 +944,8 @@ Int_t DataProcess::processDat()
         }
         else if (++curInput < m_numInputs)
         {
-            m_nRaw = m_rawTree->GetEntries();
-            m_nTime = m_timeTree->GetEntries();
+            m_nCent = m_rawTree.back()->GetEntries();
+            m_nTime = m_timeTree.back()->GetEntries();
             finishMsg(m_fileNameDat[curInput-1], "processing data", m_pixelCounter, curInput);
             openDat(curInput);
             if (m_type == dtDat)
@@ -1018,7 +1082,7 @@ Int_t DataProcess::processDat()
 
                     if (k == 0)
                     {
-                        m_rawTree->Fill();
+                        m_rawTree.back()->Fill();
 
                         if (m_bCentroid)
                         {
@@ -1067,8 +1131,16 @@ Int_t DataProcess::processDat()
             // end of read data
             if (Cols.size() == 0)
             {
-                m_nCent = m_rawTree->GetEntries();
-                m_nTime = m_timeTree->GetEntries();
+                m_nCent = m_nTime = 0;
+                for (ULong64_t entry = 0; entry < m_rawTree.size(); entry++)
+                {
+                    m_nCent += m_rawTree [entry]->GetEntries();
+                    m_nTime += m_timeTree[entry]->GetEntries();
+
+                    //saving all previous number of entries
+                    m_nCents.push_back(m_nCent);
+                    m_nTimes.push_back(m_nTime);
+                }
                 std::cout << "===" << backjumpcnt << " backward time jumps found ==" << std::endl;
 
                 finishMsg(m_fileNameDat[curInput-1], "processing data", m_pixelCounter);
@@ -1081,8 +1153,16 @@ Int_t DataProcess::processDat()
         }
     }
 
-    m_nCent = m_rawTree->GetEntries();
-    m_nTime = m_timeTree->GetEntries();
+    m_nCent = m_nTime = 0;
+    for (ULong64_t entry = 0; entry < m_rawTree.size(); entry++)
+    {
+        m_nCent += m_rawTree [entry]->GetEntries();
+        m_nTime += m_timeTree[entry]->GetEntries();
+
+        //saving all previous number of entries
+        m_nCents.push_back(m_nCent);
+        m_nTimes.push_back(m_nTime);
+    }
     std::cout << "Not all pixel packets found" << std::endl;
     finishMsg(m_fileNameDat[curInput], "processing data", m_pixelCounter);
 
@@ -1113,26 +1193,21 @@ Int_t DataProcess::processRoot()
     ULong64_t ToATrig[MAXHITS];
     Double_t ToF[MAXHITS];
 
-    m_nCent = m_rawTree->GetEntries();
-    m_nTime = m_timeTree->GetEntries();
+    ULong64_t rawChainCounter  = 0;
+    ULong64_t timeChainCounter = 0;
 
-    m_fileRoot->cd();
+//    openChain();
+//    m_nCent = m_rawChain ->GetEntries();
+//    m_nTime = m_timeChain->GetEntries();
+
+    m_nCent = m_nCents[m_filesRoot.size()];
+    m_nTime = m_nTimes[m_filesRoot.size()];
 
     if (m_bProcTree)
     {
-        std::cout << "Creating procTree" << std::endl;
-
-        m_procTree = new TTree("proctree", "processed data, Version 0.1.1");
-        m_procTree->Branch("Size", &m_Size, "Size/i");
-        m_procTree->Branch("Col",   m_Cols, "Col[Size]/i");
-        m_procTree->Branch("Row",   m_Rows, "Row[Size]/i");
-        m_procTree->Branch("ToT",   m_ToTs, "ToT[Size]/i");
-        m_procTree->Branch("ToA",   m_ToAs, "ToA[Size]/l");    // l for long unsigned
-        m_procTree->Branch("ToATrig",  ToATrig, "ToATrig[Size]/l");    // l for long unsigned
-        m_procTree->Branch("ToF",      ToF, "ToF[Size]/F");    // F for float
-        m_procTree->Branch("TrigCntr", &entryTime, "TrigCntr/i");
-        m_procTree->Branch("TrigTime", &m_trigTime,"TrigTime/l");
-        m_procTree->Branch("TrigTimeNext", &m_trigTimeNext,"TrigTimeNext/l");
+        // create all proc trees
+        for (ULong64_t entry = 0; entry < m_filesRoot.size(); entry++)
+            appendProcTree(ToATrig, ToF, entryTime, entry);
     }
 
     if (!m_bCol && !m_bRow && !m_bToA && !m_bToT && !m_bTrigToA) m_nCent = 0;
@@ -1171,14 +1246,20 @@ Int_t DataProcess::processRoot()
     while (entryTime < m_nTime || m_nTime == 0)
     {
         if (entryTime % 10 == 0) std::cout << "Time entry " << entryTime << " out of " << m_nTime << " done!" << std::endl;
+        if (entryTime >= m_nTimes[timeChainCounter+1])
+            timeChainCounter++;
 
         if (m_nTime != 0)
         {
             if (m_bNoTrigWindow && ((entryTime + 1) < m_nTime))
             {
-                m_timeTree->GetEntry(entryTime + 1);
+                if ((entryTime + 1) >= m_nTimes[timeChainCounter + 1])
+                    m_timeTree[timeChainCounter+1]->GetEntry(entryTime + 1 - m_nTimes[timeChainCounter+1]);
+                else
+                    m_timeTree[timeChainCounter  ]->GetEntry(entryTime + 1 - m_nTimes[timeChainCounter]);
+
                 m_trigTimeNext = m_trigTime;
-                m_timeTree->GetEntry(entryTime);
+                m_timeTree[timeChainCounter]->GetEntry(entryTime - m_nTimes[timeChainCounter]);
                 lfTimeWindow = m_trigTimeNext - m_trigTime;
                 lfTimeStart = 0;
             }
@@ -1186,13 +1267,16 @@ Int_t DataProcess::processRoot()
             {
                 if ((entryTime + 1) < m_nTime)
                 {
-                    m_timeTree->GetEntry(entryTime + 1);
+                    if ((entryTime + 1) >= m_nTimes[timeChainCounter + 1])
+                        m_timeTree[timeChainCounter+1]->GetEntry(entryTime + 1 - m_nTimes[timeChainCounter+1]);
+                    else
+                        m_timeTree[timeChainCounter  ]->GetEntry(entryTime + 1 - m_nTimes[timeChainCounter]);
                     m_trigTimeNext = m_trigTime;
                 }
                 else
                     m_trigTimeNext = 0;
 
-                m_timeTree->GetEntry(entryTime);
+                m_timeTree[timeChainCounter]->GetEntry(entryTime - m_nTimes[timeChainCounter]);
             }
 
             if (m_bCsv && m_nCent == 0)
@@ -1216,7 +1300,10 @@ Int_t DataProcess::processRoot()
         // loop entries in centTree
         for (Long64_t entryCent = currChunkCent; entryCent < m_nCent; entryCent++)
         {
-            m_rawTree->GetEntry(entryCent);
+            if (entryCent >= m_nCents[rawChainCounter+1])
+                rawChainCounter++;
+
+            m_rawTree[rawChainCounter]->GetEntry(entryCent - m_nCents[rawChainCounter]);
             if (m_nTime == 0 && entryCent % 100000 == 0) std::cout << "Entry " << entryCent << " of " << m_nCent << " done!" << std::endl;
 
             //
@@ -1378,7 +1465,7 @@ Int_t DataProcess::processRoot()
 
                 if(m_bProcTree)
                 {
-                    m_procTree->Fill();
+                    m_procTree[rawChainCounter]->Fill();
                 }
             }
         }
@@ -1389,7 +1476,7 @@ Int_t DataProcess::processRoot()
         entryTime++;
     }
 
-    finishMsg(m_fileNameRoot,"processing root raw", static_cast<ULong64_t>(lineCounterCent), m_filesCsv.size());
+    finishMsg(m_fileNameRoot.back(),"processing root raw", static_cast<ULong64_t>(lineCounterCent), m_filesCsv.size());
 
     return 0;
 }
@@ -1528,7 +1615,30 @@ void DataProcess::createCorrection()
         if (m_bCorrCsv)
             fprintf(m_fileCorr,"%u, %f\n", m_lookupTable.at(indexEntry).ToT, m_lookupTable.at(indexEntry).dToA);
         std::cout << "==============================================="  << std::endl;
-        std::cout << "ToT: "  << m_lookupTable.at(indexEntry).ToT << std::endl;
-        std::cout << "dToA: " << m_lookupTable.at(indexEntry).dToA  << std::endl;
+        std::cout << "ToT: "  << m_lookupTable.at(indexEntry).ToT;
+        std::cout << ", dToA: " << m_lookupTable.at(indexEntry).dToA  << std::endl;
+    }
+}
+
+void DataProcess::appendProcTree(ULong64_t ToATrig[MAXHITS], Double_t ToF[MAXHITS], Long64_t &entryTime, ULong64_t id)
+{
+    std::cout << "==============================================="  << std::endl;
+    std::cout << "Creating procTree " << id << "/" << m_filesRoot.size() << std::endl;
+
+    if (m_filesRoot.size() > id)
+    {
+        m_filesRoot[id]->cd();
+
+        m_procTree.push_back(new TTree("proctree", "processed data, Version 0.1.1"));
+        m_procTree.back()->Branch("Size", &m_Size, "Size/i");
+        m_procTree.back()->Branch("Col",   m_Cols, "Col[Size]/i");
+        m_procTree.back()->Branch("Row",   m_Rows, "Row[Size]/i");
+        m_procTree.back()->Branch("ToT",   m_ToTs, "ToT[Size]/i");
+        m_procTree.back()->Branch("ToA",   m_ToAs, "ToA[Size]/l");    // l for long unsigned
+        m_procTree.back()->Branch("ToATrig",  ToATrig, "ToATrig[Size]/l");    // l for long unsigned
+        m_procTree.back()->Branch("ToF",      ToF, "ToF[Size]/F");    // F for float
+        m_procTree.back()->Branch("TrigCntr", &entryTime, "TrigCntr/l");
+        m_procTree.back()->Branch("TrigTime", &m_trigTime,"TrigTime/l");
+        m_procTree.back()->Branch("TrigTimeNext", &m_trigTimeNext,"TrigTimeNext/l");
     }
 }

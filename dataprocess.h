@@ -13,6 +13,8 @@
 #include "TH1.h"
 #include "TH2.h"
 
+#include "TChain.h"
+
 #define MAXHITS 65536       // minimal value for sorting 65536
 
 using namespace std;
@@ -84,9 +86,10 @@ private:
     ULong64_t roundToNs(ULong64_t number);
 
     Int_t openCorr(Bool_t create = kTRUE);
-    Int_t openDat(Int_t fileCounter = 0);
+    Int_t openDat(ULong64_t fileCounter = 0);
     Int_t openCsv(DataType type = dtStandard, TString fileCounter = "");
-    Int_t openRoot();
+    Int_t openRoot(ULong64_t fileCounter = 0);
+    void  openChain();
 
     void  findCluster(ULong64_t index, ULong64_t stop, deque<UInt_t >* cols, deque<UInt_t >* rows, deque<ULong64_t >* toas, deque<UInt_t> *tots, deque<Bool_t >* centered, deque<ULong64_t> *indices);
     Int_t processDat();
@@ -97,6 +100,8 @@ private:
 
     void loadCorrection();
     void createCorrection();
+
+    void appendProcTree(ULong64_t ToATrig[], Double_t ToF[], Long64_t &entryTime, ULong64_t id = 0);
 
     void closeCorr();
     void closeDat();
@@ -115,6 +120,9 @@ private:
     TSignalHandler* m_sigHandler;
     Bool_t      m_bFirstTrig;
     Bool_t      m_bDevID;
+
+    ULong64_t   m_chainCounter;
+    ULong64_t   m_treeMaxEntries;
 
     //
     // options of GUI
@@ -145,11 +153,12 @@ private:
     //
     // file names
     DataType        m_type;
-    Int_t           m_numInputs;
+    ULong64_t       m_numInputs;
     deque<TString > m_fileNameInput;
     TString         m_fileNamePath;
+    TString         m_fileName;
     deque<TString > m_fileNameDat;
-    TString         m_fileNameRoot;
+    deque<TString > m_fileNameRoot;
     TString         m_fileNamePdf;
     TString         m_fileNameCsv;
     TString         m_fileNameCentCsv;
@@ -158,19 +167,26 @@ private:
     // files
     FILE*           m_fileCorr;
     deque<FILE* >   m_filesDat;
-    TFile*          m_fileRoot;
+    deque<TFile* >  m_filesRoot;
+//    TFile*          m_fileRoot;
     deque<FILE* >   m_filesCsv;
     deque<FILE* >   m_filesCentCsv;
 
     //
     // ROOT trees
-    TTree* m_rawTree;
-    TTree* m_timeTree;
-    TTree* m_procTree;
+    TChain* m_rawChain;
+    TChain* m_timeChain;
+    TChain* m_procChain;
 
-    Long64_t m_nRaw;
+    deque<TTree* > m_rawTree;
+    deque<TTree* > m_timeTree;
+    deque<TTree* > m_procTree;
+
     Long64_t m_nCent;
     Long64_t m_nTime;
+
+    deque<Long64_t > m_nCents;
+    deque<Long64_t > m_nTimes;
 
     //
     // ROOT histograms
